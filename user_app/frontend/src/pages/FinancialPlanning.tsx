@@ -9,12 +9,6 @@ interface FinancialData {
   investments: number;
 }
 
-interface PlanningResult {
-  recommendations: string[];
-  taxOptimization: any;
-  riskAssessment: any;
-}
-
 const FinancialPlanning: React.FC = () => {
   const [financialData, setFinancialData] = useState<FinancialData>({
     income: 0,
@@ -23,7 +17,7 @@ const FinancialPlanning: React.FC = () => {
     investments: 0,
   });
 
-  const { data: planningResult, refetch: refetchPlanning } = useQuery<PlanningResult>(
+  const { data: planningResult, refetch: refetchPlanning } = useQuery(
     'financial-planning',
     async () => {
       const response = await axios.post('/api/financial-planning', financialData);
@@ -125,50 +119,18 @@ const FinancialPlanning: React.FC = () => {
       </div>
 
       {planningResult && (
-        <>
-          <div className="bg-white shadow sm:rounded-lg">
-            <div className="px-4 py-5 sm:p-6">
-              <h3 className="text-lg leading-6 font-medium text-gray-900">
-                Recommendations
-              </h3>
-              <div className="mt-4">
-                <ul className="list-disc pl-5 space-y-2">
-                  {planningResult.recommendations.map((rec, index) => (
-                    <li key={index} className="text-sm text-gray-500">
-                      {rec}
-                    </li>
-                  ))}
-                </ul>
-              </div>
+        <div className="bg-white shadow sm:rounded-lg">
+          <div className="px-4 py-5 sm:p-6">
+            <h3 className="text-lg leading-6 font-medium text-gray-900">
+              Agent Planner Response
+            </h3>
+            <div className="mt-4">
+              <pre className="bg-gray-50 p-4 rounded-md overflow-x-auto">
+                {JSON.stringify(planningResult, null, 2)}
+              </pre>
             </div>
           </div>
-
-          <div className="bg-white shadow sm:rounded-lg">
-            <div className="px-4 py-5 sm:p-6">
-              <h3 className="text-lg leading-6 font-medium text-gray-900">
-                Tax Optimization
-              </h3>
-              <div className="mt-4">
-                <pre className="bg-gray-50 p-4 rounded-md overflow-x-auto">
-                  {JSON.stringify(planningResult.taxOptimization, null, 2)}
-                </pre>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white shadow sm:rounded-lg">
-            <div className="px-4 py-5 sm:p-6">
-              <h3 className="text-lg leading-6 font-medium text-gray-900">
-                Risk Assessment
-              </h3>
-              <div className="mt-4">
-                <pre className="bg-gray-50 p-4 rounded-md overflow-x-auto">
-                  {JSON.stringify(planningResult.riskAssessment, null, 2)}
-                </pre>
-              </div>
-            </div>
-          </div>
-        </>
+        </div>
       )}
     </div>
   );

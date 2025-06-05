@@ -129,12 +129,18 @@ async def create_financial_plan(data: FinancialData, request: Request):
     # Get the access token
     access_token = sessions[session_id]["access_token"]
     
-    # TODO: Implement financial planning logic
-    return {
-        "status": "success",
-        "message": "Financial plan created successfully",
-        "data": data.dict()
-    }
+    # Call the agent_planner service
+    async with httpx.AsyncClient() as client:
+        try:
+            response = await client.post(
+                "http://localhost:8001/generate-plan",
+                headers={"Authorization": f"Bearer {access_token}"}
+            )
+            response.raise_for_status()
+            return response.json()
+        except httpx.HTTPError as e:
+            print(f"Error calling agent_planner: {e}")
+            raise HTTPException(status_code=500, detail="Failed to generate financial plan")
 
 @app.get("/login")
 async def login():
