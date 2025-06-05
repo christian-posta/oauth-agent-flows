@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agent Status - AI Financial Planner</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+</head>
+<body class="bg-gray-100">
+    <div class="min-h-screen">
+        <!-- Navigation -->
+        <nav class="bg-white shadow-lg">
+            <div class="max-w-7xl mx-auto px-4">
+                <div class="flex justify-between h-16">
+                    <div class="flex">
+                        <div class="flex-shrink-0 flex items-center">
+                            <a href="/" class="text-xl font-bold text-gray-800">AI Financial Planner</a>
+                        </div>
+                        <div class="hidden sm:ml-6 sm:flex sm:space-x-8">
+                            <a href="/" class="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                                Home
+                            </a>
+                            <a href="/agents" class="border-indigo-500 text-gray-900 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                                Agents
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+            <div class="px-4 py-6 sm:px-0">
+                <div class="bg-white shadow overflow-hidden sm:rounded-lg">
+                    <div class="px-4 py-5 sm:px-6">
+                        <h3 class="text-lg leading-6 font-medium text-gray-900">Agent Status</h3>
+                        <p class="mt-1 max-w-2xl text-sm text-gray-500">Current status of all registered agents.</p>
+                    </div>
+                    <div class="border-t border-gray-200">
+                        <div id="agent-list" hx-get="/api/agents" hx-trigger="load, every 30s" hx-swap="innerHTML">
+                            <div class="flex justify-center items-center h-32">
+                                <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Agent List Template -->
+    <template id="agent-list-template">
+        <div class="bg-white shadow overflow-hidden sm:rounded-lg">
+            <ul role="list" class="divide-y divide-gray-200">
+                {{#each agents}}
+                <li class="px-4 py-4 sm:px-6">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0">
+                                <div class="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center">
+                                    <span class="text-indigo-600 font-medium">{{name.[0]}}</span>
+                                </div>
+                            </div>
+                            <div class="ml-4">
+                                <div class="text-sm font-medium text-gray-900">{{name}}</div>
+                                <div class="text-sm text-gray-500">ID: {{id}}</div>
+                            </div>
+                        </div>
+                        <div class="flex items-center">
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full {{#if (eq status 'active')}}bg-green-100 text-green-800{{else}}bg-red-100 text-red-800{{/if}}">
+                                {{status}}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="mt-2">
+                        <div class="text-sm text-gray-500">
+                            <strong>Capabilities:</strong>
+                            <div class="mt-1 flex flex-wrap gap-2">
+                                {{#each capabilities}}
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                    {{this}}
+                                </span>
+                                {{/each}}
+                            </div>
+                        </div>
+                        <div class="mt-2 text-sm text-gray-500">
+                            <strong>Last Seen:</strong> {{last_seen}}
+                        </div>
+                        {{#if health}}
+                        <div class="mt-2 text-sm text-gray-500">
+                            <strong>Health:</strong>
+                            <div class="mt-1">
+                                <div class="flex items-center">
+                                    <div class="w-full bg-gray-200 rounded-full h-2.5">
+                                        <div class="bg-green-600 h-2.5 rounded-full" style="width: {{health.uptime_percentage}}%"></div>
+                                    </div>
+                                    <span class="ml-2 text-xs text-gray-500">{{health.uptime_percentage}}% uptime</span>
+                                </div>
+                            </div>
+                        </div>
+                        {{/if}}
+                    </div>
+                </li>
+                {{/each}}
+            </ul>
+            <div class="px-4 py-3 bg-gray-50 text-right text-sm text-gray-500">
+                Last updated: {{timestamp}}
+            </div>
+        </div>
+    </template>
+
+    <script>
+        // Handle agent list updates
+        document.body.addEventListener('htmx:afterSwap', function(evt) {
+            if (evt.detail.target.id === 'agent-list') {
+                const template = document.getElementById('agent-list-template');
+                const data = JSON.parse(evt.detail.xhr.response);
+                
+                // Render the template with the data
+                const rendered = template.innerHTML
+                    .replace(/{{#each agents}}/g, '')
+                    .replace(/{{/each}}/g, '')
+                    .replace(/{{name}}/g, data.agents[0].name)
+                    .replace(/{{id}}/g, data.agents[0].id)
+                    .replace(/{{status}}/g, data.agents[0].status)
+                    .replace(/{{last_seen}}/g, new Date(data.agents[0].last_seen).toLocaleString())
+                    .replace(/{{timestamp}}/g, new Date(data.timestamp).toLocaleString());
+                
+                evt.detail.target.innerHTML = rendered;
+            }
+        });
+    </script>
+</body>
+</html> 
