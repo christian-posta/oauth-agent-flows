@@ -1,0 +1,257 @@
+{
+  "id": "ai-agents",
+  "realm": "ai-agents",
+  "enabled": true,
+  "roles": {
+    "realm": [
+      {
+        "name": "user",
+        "description": "Regular user role"
+      },
+      {
+        "name": "agent",
+        "description": "AI agent role"
+      }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "user-web-app",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "redirectUris": [
+        "http://localhost:8000/callback",
+        "http://host.docker.internal:8000/callback",
+        "http://localhost:5173/callback"
+      ],
+      "webOrigins": [
+        "http://localhost:8000",
+        "http://host.docker.internal:8000",
+        "http://localhost:5173"
+      ],
+      "directAccessGrantsEnabled": true,
+      "standardFlowEnabled": true,
+      "serviceAccountsEnabled": true,
+      "authorizationServicesEnabled": true,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "your-client-secret",
+      "attributes": {
+        "access.token.lifespan": "300"
+      },
+      "defaultClientScopes": [
+        "openid",
+        "profile",
+        "email",
+        "financial:read",
+        "tax:process"
+      ]
+    },
+    {
+      "clientId": "agent-planner",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "redirectUris": [],
+      "webOrigins": [],
+      "directAccessGrantsEnabled": false,
+      "standardFlowEnabled": false,
+      "serviceAccountsEnabled": true,
+      "authorizationServicesEnabled": true,
+      "attributes": {
+        "token.exchange": "true"
+      }
+    },
+    {
+      "clientId": "agent-tax-optimizer",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "redirectUris": [],
+      "webOrigins": [],
+      "directAccessGrantsEnabled": false,
+      "standardFlowEnabled": false,
+      "serviceAccountsEnabled": true,
+      "authorizationServicesEnabled": true,
+      "attributes": {
+        "token.exchange": "true"
+      }
+    },
+    {
+      "clientId": "agent-calculator",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "redirectUris": [],
+      "webOrigins": [],
+      "directAccessGrantsEnabled": false,
+      "standardFlowEnabled": false,
+      "serviceAccountsEnabled": true,
+      "authorizationServicesEnabled": true,
+      "attributes": {
+        "token.exchange": "true"
+      }
+    },
+    {
+      "clientId": "tax-api",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "redirectUris": [],
+      "webOrigins": [],
+      "directAccessGrantsEnabled": false,
+      "standardFlowEnabled": false,
+      "serviceAccountsEnabled": false,
+      "authorizationServicesEnabled": false,
+      "bearerOnly": true,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "your-client-secret"
+    }
+  ],
+  "clientScopes": [
+    {
+      "name": "openid",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "display.on.consent.screen": "true"
+      }
+    },
+    {
+      "name": "profile",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "display.on.consent.screen": "true"
+      }
+    },
+    {
+      "name": "email",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "display.on.consent.screen": "true"
+      }
+    },
+    {
+      "name": "financial:read",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "display.on.consent.screen": "true"
+      },
+      "protocolMappers": [
+        {
+          "name": "financial:read",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "config": {
+            "user.attribute": "financial:read",
+            "claim.name": "financial:read",
+            "jsonType.label": "boolean",
+            "id.token.claim": "true",
+            "access.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "name": "tax:process",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "display.on.consent.screen": "true"
+      },
+      "protocolMappers": [
+        {
+          "name": "tax:process",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "config": {
+            "user.attribute": "tax:process",
+            "claim.name": "tax:process",
+            "jsonType.label": "boolean",
+            "id.token.claim": "true",
+            "access.token.claim": "true"
+          }
+        }
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "demo-user",
+      "enabled": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "demo-password",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "user"
+      ],
+      "clientRoles": {
+        "user-web-app": [
+          "financial:read",
+          "tax:process"
+        ]
+      }
+    },
+    {
+      "username": "agent-planner",
+      "enabled": true,
+      "serviceAccountClientId": "agent-planner",
+      "realmRoles": [
+        "agent"
+      ],
+      "clientRoles": {
+        "agent-planner": [
+          "financial:read",
+          "tax:process"
+        ]
+      }
+    },
+    {
+      "username": "agent-tax-optimizer",
+      "enabled": true,
+      "serviceAccountClientId": "agent-tax-optimizer",
+      "realmRoles": [
+        "agent"
+      ],
+      "clientRoles": {
+        "agent-tax-optimizer": [
+          "tax:process"
+        ]
+      }
+    },
+    {
+      "username": "agent-calculator",
+      "enabled": true,
+      "serviceAccountClientId": "agent-calculator",
+      "realmRoles": [
+        "agent"
+      ],
+      "clientRoles": {
+        "agent-calculator": [
+          "tax:calculate"
+        ]
+      }
+    }
+  ],
+  "components": {
+    "org.keycloak.services.clientregistration.policy.ClientRegistrationPolicies": [
+      {
+        "name": "allowed-client-templates",
+        "providerId": "allowed-client-templates",
+        "subType": "authenticated",
+        "config": {
+          "allow-default-scopes": [
+            "true"
+          ]
+        }
+      }
+    ]
+  }
+} 

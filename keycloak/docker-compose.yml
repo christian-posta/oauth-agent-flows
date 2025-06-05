@@ -1,0 +1,11 @@
+
+services:
+  keycloak:
+    image: quay.io/keycloak/keycloak:23.0
+    environment:
+      KC_HEALTH_ENABLED: "true"
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+    ports:
+      - "8081:8080"
+    command: start-dev 
