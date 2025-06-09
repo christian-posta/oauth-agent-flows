@@ -33,7 +33,6 @@
       "assignedScopes": {
         "default": [
           "agent-planner-audience", 
-          "agent-tax-optimizer-audience",
           "financial:read",
           "tax:process"
         ],
@@ -53,7 +52,7 @@
         "allowRefreshToken": "same-session"
       },
       "assignedScopes": {
-        "default": [],
+        "default": ["agent-tax-optimizer-audience"],
         "optional": ["tax:process"]
       },
       "roles": [
@@ -163,8 +162,7 @@
       "password": "password123",
       "temporary": false,
       "clientRoles": {
-        "agent-tax-optimizer": ["user"],
-        "agent-planner": ["planner"]
+
       }
     },
     {

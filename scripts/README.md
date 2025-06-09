@@ -24,24 +24,23 @@ This Python script automates the complete setup for Standard Token Exchange in K
 
 ### Basic Setup
 
-```bash
-python setup_keycloak.py --config config.json --url http://localhost:8081
-```
-
-
-or 
 
 ```bash
 python setup_keycloak.py --config config.json --url http://localhost:8081 --debug --verbose
+
 ```
 
-### With Testing
+> Note: this sets up everything except enabling token exchange on the agent-planner client; you MUST do this in the UI
+
+
+After setting up, you can run the test token exchange script which will guide you through:
 
 ```bash
-python setup_keycloak.py --config config.json --url http://localhost:8081 --test --summary
+./test_token_exchange.sh
 ```
 
-### Full Options
+NOTE, to get the clients working in the larger demo, you'll have to update the client_secrets for each of the clients. 
+
 
 ```bash
 python setup_keycloak.py \
