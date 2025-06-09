@@ -338,6 +338,10 @@ class KeycloakSetup:
                     "directAccessGrantsEnabled": client_config.get('directAccessGrantsEnabled', False)
                 })
                 
+                # Add client secret if provided
+                if client_config.get('clientSecret'):
+                    client_data["secret"] = client_config['clientSecret']
+                
                 # Add token exchange settings for confidential clients
                 if client_config.get('tokenExchange', {}).get('enabled', False):
                     if "attributes" not in client_data:

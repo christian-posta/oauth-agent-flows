@@ -51,6 +51,7 @@
         "enabled": true,
         "allowRefreshToken": "same-session"
       },
+      "clientSecret": "17yYAxRtRamaYeHtgFEJJEzyeXcdlszD",
       "assignedScopes": {
         "default": ["agent-tax-optimizer-audience"],
         "optional": ["tax:process"]
@@ -73,6 +74,7 @@
       "tokenExchange": {
         "enabled": false
       },
+      "clientSecret": "PLOs4j6ti521kb5ZVVVwi5GWi9eDYTwq",
       "assignedScopes": {
         "default": [],
         "optional": []
