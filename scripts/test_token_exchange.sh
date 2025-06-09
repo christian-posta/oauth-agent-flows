@@ -196,23 +196,112 @@ get_user_token() {
 get_client_secret() {
     log_step "Getting agent-planner client secret..."
     
-    echo "Note: This step requires admin access to Keycloak"
-    echo "We'll extract the client secret from your previous curl commands"
-    echo "Or you can get it from: Keycloak Admin → Clients → agent-planner → Credentials"
+    # If secret was provided via command line, use it
+    if [ -n "$AGENT_PLANNER_SECRET" ]; then
+        log_success "Using client secret from command line"
+        echo "Secret: ${AGENT_PLANNER_SECRET:0:10}... (first 10 chars)"
+        return 0
+    fi
     
-    # Try to extract from previous commands or ask user
-    if [ -z "$AGENT_PLANNER_SECRET" ]; then
+    echo "Attempting to retrieve client secret programmatically..."
+    echo "This requires admin access to Keycloak"
+    
+    confirm_step "Try to get client secret automatically?"
+    
+    # Get admin token
+    log_info "Getting admin token..."
+    local admin_response
+    admin_response=$(curl -s -X POST \
+        "$KEYCLOAK_URL/realms/master/protocol/openid-connect/token" \
+        -H 'Content-Type: application/x-www-form-urlencoded' \
+        -d "grant_type=password" \
+        -d "client_id=admin-cli" \
+        -d "username=${ADMIN_USERNAME:-admin}" \
+        -d "password=${ADMIN_PASSWORD:-admin}")
+    
+    if echo "$admin_response" | grep -q "access_token"; then
+        local admin_token
+        admin_token=$(echo "$admin_response" | jq -r '.access_token' 2>/dev/null || echo "$admin_response" | grep -o '"access_token":"[^"]*"' | cut -d'"' -f4)
+        log_success "Admin token obtained"
+    else
+        log_error "Failed to get admin token"
+        echo "Response:"
+        pretty_json "$admin_response"
+        
+        # Fallback to manual entry
+        echo "Falling back to manual entry..."
         echo "Please enter the agent-planner client secret:"
         read -r AGENT_PLANNER_SECRET
+        
+        if [ -z "$AGENT_PLANNER_SECRET" ]; then
+            log_error "Client secret is required"
+            exit 1
+        fi
+        
+        log_success "Client secret configured manually"
+        return 0
     fi
     
-    if [ -z "$AGENT_PLANNER_SECRET" ]; then
-        log_error "Client secret is required"
-        exit 1
+    # Get client UUID
+    log_info "Looking up agent-planner client..."
+    local client_response
+    client_response=$(curl -s -X GET \
+        "$KEYCLOAK_URL/admin/realms/$REALM_NAME/clients?clientId=$AGENT_PLANNER_CLIENT_ID" \
+        -H "Authorization: Bearer $admin_token")
+    
+    if echo "$client_response" | grep -q "$AGENT_PLANNER_CLIENT_ID"; then
+        local client_uuid
+        client_uuid=$(echo "$client_response" | jq -r '.[0].id' 2>/dev/null || echo "$client_response" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+        log_success "Found agent-planner client: $client_uuid"
+    else
+        log_error "Could not find agent-planner client"
+        echo "Response:"
+        pretty_json "$client_response"
+        
+        # Fallback to manual entry
+        echo "Falling back to manual entry..."
+        echo "Please enter the agent-planner client secret:"
+        read -r AGENT_PLANNER_SECRET
+        
+        if [ -z "$AGENT_PLANNER_SECRET" ]; then
+            log_error "Client secret is required"
+            exit 1
+        fi
+        
+        log_success "Client secret configured manually"
+        return 0
     fi
     
-    log_success "Client secret configured"
-    echo "Secret: ${AGENT_PLANNER_SECRET:0:10}... (first 10 chars)"
+    # Get client secret
+    log_info "Retrieving client secret..."
+    local secret_response
+    secret_response=$(curl -s -X GET \
+        "$KEYCLOAK_URL/admin/realms/$REALM_NAME/clients/$client_uuid/client-secret" \
+        -H "Authorization: Bearer $admin_token")
+    
+    if echo "$secret_response" | grep -q "value"; then
+        AGENT_PLANNER_SECRET=$(echo "$secret_response" | jq -r '.value' 2>/dev/null || echo "$secret_response" | grep -o '"value":"[^"]*"' | cut -d'"' -f4)
+        log_success "Client secret retrieved automatically"
+        echo "Secret: ${AGENT_PLANNER_SECRET:0:10}... (first 10 chars)"
+    else
+        log_error "Could not retrieve client secret"
+        echo "Response:"
+        pretty_json "$secret_response"
+        
+        # Fallback to manual entry
+        echo "Falling back to manual entry..."
+        echo "You can find the secret in Keycloak Admin Console:"
+        echo "  Clients → agent-planner → Credentials → Client Secret"
+        echo "Please enter the agent-planner client secret:"
+        read -r AGENT_PLANNER_SECRET
+        
+        if [ -z "$AGENT_PLANNER_SECRET" ]; then
+            log_error "Client secret is required"
+            exit 1
+        fi
+        
+        log_success "Client secret configured manually"
+    fi
 }
 
 # Test token exchange
@@ -422,16 +511,29 @@ while [[ $# -gt 0 ]]; do
             AGENT_PLANNER_SECRET="$2"
             shift 2
             ;;
+        --admin-user)
+            ADMIN_USERNAME="$2"
+            shift 2
+            ;;
+        --admin-pass)
+            ADMIN_PASSWORD="$2"
+            shift 2
+            ;;
         --help)
-            echo "Usage: $0 [--url KEYCLOAK_URL] [--secret CLIENT_SECRET]"
+            echo "Usage: $0 [--url KEYCLOAK_URL] [--secret CLIENT_SECRET] [--admin-user USER] [--admin-pass PASS]"
             echo ""
             echo "Options:"
-            echo "  --url URL      Keycloak URL (default: http://localhost:8081)"
-            echo "  --secret SEC   Agent planner client secret"
-            echo "  --help         Show this help"
+            echo "  --url URL         Keycloak URL (default: http://localhost:8081)"
+            echo "  --secret SEC      Agent planner client secret (will auto-retrieve if not provided)"
+            echo "  --admin-user USER Admin username (default: admin)"
+            echo "  --admin-pass PASS Admin password (default: admin)"
+            echo "  --help            Show this help"
             echo ""
-            echo "Example:"
-            echo "  $0 --url http://localhost:8081 --secret myClientSecret123"
+            echo "Examples:"
+            echo "  $0"
+            echo "  $0 --url http://localhost:8081"
+            echo "  $0 --secret myClientSecret123"
+            echo "  $0 --admin-user myadmin --admin-pass mypassword"
             exit 0
             ;;
         *)
