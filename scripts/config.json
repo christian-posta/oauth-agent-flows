@@ -72,12 +72,12 @@
       "standardFlowEnabled": false,
       "directAccessGrantsEnabled": false,
       "tokenExchange": {
-        "enabled": false
+        "enabled": true
       },
       "clientSecret": "PLOs4j6ti521kb5ZVVVwi5GWi9eDYTwq",
       "assignedScopes": {
-        "default": [],
-        "optional": []
+        "default": ["agent-tax-calculator-audience"],
+        "optional": ["tax:calculate"]
       },
       "roles": [
         {
@@ -89,7 +89,30 @@
           "description": "Admin role for tax optimizer"
         }
       ]
-    }
+    },
+    {
+      "clientId": "agent-calculator",
+      "name": "Agent Calculator Service",
+      "type": "confidential", 
+      "enabled": true,
+      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "tokenExchange": {
+        "enabled": false
+      },
+      "clientSecret": "PLOs4j6ti521kb5ZVVVwi5GWi9eDYTwq",
+      "assignedScopes": {
+        "default": [],
+        "optional": []
+      },
+      "roles": [
+        {
+          "name": "user",
+          "description": "Basic user role for tax calculator"
+        }
+      ]
+    }    
   ],
   "clientScopes": [
     {
@@ -133,6 +156,26 @@
       ]
     },
     {
+      "name": "agent-tax-calculator-audience",
+      "description": "Adds agent-tax-calculator to available audiences",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "display.on.consent.screen": "false"
+      },
+      "mappers": [
+        {
+          "name": "agent-tax-calculator-audience-mapper",
+          "type": "oidc-audience-mapper",
+          "config": {
+            "included.client.audience": "agent-calculator",
+            "id.token.claim": "false",
+            "access.token.claim": "true"
+          }
+        }
+      ]
+    },    
+    {
       "name": "tax:process",
       "description": "Scope for tax processing operations",
       "protocol": "openid-connect",
@@ -142,6 +185,16 @@
       },
       "mappers": []
     },
+    {
+      "name": "tax:calculate",
+      "description": "Scope for tax processing operations",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "display.on.consent.screen": "true"
+      },
+      "mappers": []
+    },    
     {
       "name": "financial:read",
       "description": "Scope for reading financial data",
@@ -188,6 +241,12 @@
       "requesterClient": "agent-planner",
       "targetClients": ["agent-tax-optimizer"],
       "allowedScopes": ["tax:process"]
+    },
+    {
+      "description": "Tax Optimizer → Tax Calculator",
+      "requesterClient": "agent-tax-optimizer",
+      "targetClients": ["agent-tax-calculator"],
+      "allowedScopes": ["tax:calculate"]
     }
   ]
 }

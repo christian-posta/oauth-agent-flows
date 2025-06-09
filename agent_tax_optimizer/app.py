@@ -28,12 +28,14 @@ REALM = os.getenv("REALM")
 CLIENT_ID = os.getenv("CLIENT_ID")
 CLIENT_SECRET = os.getenv("CLIENT_SECRET")
 PORT = int(os.getenv("PORT", "8002"))
+CALCULATOR_URL = os.getenv("CALCULATOR_URL")
 
 logger.info(f"Agent Tax Optimizer Configuration:")
 logger.info(f"KEYCLOAK_URL: {KEYCLOAK_URL}")
 logger.info(f"REALM: {REALM}")
 logger.info(f"CLIENT_ID: {CLIENT_ID}")
 logger.info(f"PORT: {PORT}")
+logger.info(f"CALCULATOR_URL: {CALCULATOR_URL}")
 
 class FinancialData(BaseModel):
     income: float
@@ -152,7 +154,44 @@ async def optimize_tax(data: FinancialData, credentials: HTTPAuthorizationCreden
         logger.info(f"Decoded token: {decoded_token}")
         logger.info(f"Financial data: {data.dict()}")
         
-        # Calculate some example optimization results based on the financial data
+        # Exchange token for calculator service
+        try:
+            calculator_token_response = await exchange_token_for_calculator(token)
+            logger.info("Token exchange for calculator completed")
+        except Exception as e:
+            logger.error(f"Token exchange for calculator failed: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Token exchange for calculator failed: {str(e)}")
+        
+        # Call calculator service
+        calculator_url = f"{CALCULATOR_URL}/api/calculate"
+        logger.info(f"Calling calculator at: {calculator_url}")
+        logger.info(f"Using token: {calculator_token_response['access_token'][:20]}...")  # Log first 20 chars
+        
+        async with httpx.AsyncClient() as client:
+            try:
+                calculator_response = await client.post(
+                    calculator_url,
+                    headers={"Authorization": f"Bearer {calculator_token_response['access_token']}"}
+                )
+                logger.info(f"Calculator response status: {calculator_response.status_code}")
+                logger.info(f"Calculator response headers: {calculator_response.headers}")
+                calculator_response.raise_for_status()
+                calculator_result = calculator_response.json()
+                logger.info("Calculator response received:")
+                logger.info(f"Response: {calculator_result}")
+            except httpx.HTTPError as e:
+                logger.error(f"Error calling calculator: {e}")
+                if hasattr(e, 'response'):
+                    logger.error(f"Response status: {e.response.status_code}")
+                    logger.error(f"Response headers: {e.response.headers}")
+                    logger.error(f"Response body: {e.response.text}")
+                raise HTTPException(status_code=500, detail=f"Failed to call calculator: {str(e)}")
+            except Exception as e:
+                logger.error(f"Unexpected error calling calculator: {str(e)}")
+                raise HTTPException(status_code=500, detail=f"Unexpected error calling calculator: {str(e)}")
+        
+        # Calculate optimization results based on calculator results and financial data
+        tax_result = calculator_result.get("tax_result", {})
         estimated_savings = min(data.income * 0.1, 5000)  # Example: 10% of income up to $5000
         recommendations = [
             "Maximize 401(k) contributions",
@@ -166,7 +205,8 @@ async def optimize_tax(data: FinancialData, credentials: HTTPAuthorizationCreden
             "token_info": decoded_token,
             "optimization_result": {
                 "estimated_savings": estimated_savings,
-                "recommendations": recommendations
+                "recommendations": recommendations,
+                "calculator_result": tax_result
             }
         }
         logger.info("Sending response:")
@@ -176,6 +216,66 @@ async def optimize_tax(data: FinancialData, credentials: HTTPAuthorizationCreden
     except Exception as e:
         logger.error(f"Error in optimize_tax: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error optimizing tax: {str(e)}")
+
+async def exchange_token_for_calculator(subject_token: str) -> dict:
+    """Exchange the user's token for a token to call agent_calculator."""
+    token_url = f"{KEYCLOAK_URL}/realms/{REALM}/protocol/openid-connect/token"
+    
+    # Prepare the token exchange request
+    data = {
+        "grant_type": "urn:ietf:params:oauth:grant-type:token-exchange",
+        "subject_token": subject_token,
+        "subject_token_type": "urn:ietf:params:oauth:token-type:access_token",
+        "audience": "agent-calculator",
+        "scope": "tax:calculate",
+        "client_id": CLIENT_ID,
+        "client_secret": CLIENT_SECRET
+    }
+    
+    logger.info("Attempting token exchange with Keycloak for calculator service")
+    logger.info(f"Token exchange URL: {token_url}")
+    # Don't log the actual secret, just confirm it's present
+    log_data = data.copy()
+    log_data["client_secret"] = "***REDACTED***" if CLIENT_SECRET else "MISSING"
+    log_data["subject_token"] = f"{subject_token[:20]}...{subject_token[-10:]}" if subject_token else "MISSING"
+    logger.info(f"Token exchange request data: {log_data}")
+    
+    async with httpx.AsyncClient() as client:
+        try:
+            headers = {
+                "Content-Type": "application/x-www-form-urlencoded",
+                "Accept": "application/json"
+            }
+            response = await client.post(token_url, data=data, headers=headers)
+            logger.info(f"Token exchange response status: {response.status_code}")
+            logger.info(f"Token exchange response headers: {response.headers}")
+            
+            # Always log the response body for debugging
+            response_text = response.text
+            logger.info(f"Token exchange response body: {response_text}")
+            
+            if response.status_code != 200:
+                logger.error(f"Token exchange failed with status {response.status_code}")
+                logger.error(f"Error response: {response_text}")
+                raise HTTPException(
+                    status_code=response.status_code, 
+                    detail=f"Token exchange failed: {response_text}"
+                )
+            
+            token_response = response.json()
+            logger.info("Token exchange successful")
+            return token_response
+            
+        except httpx.HTTPError as e:
+            logger.error(f"Token exchange HTTP error: {e}")
+            if hasattr(e, 'response') and e.response:
+                logger.error(f"Response status: {e.response.status_code}")
+                logger.error(f"Response headers: {e.response.headers}")
+                logger.error(f"Response body: {e.response.text}")
+            raise HTTPException(status_code=500, detail=f"Failed to exchange token: {str(e)}")
+        except Exception as e:
+            logger.error(f"Unexpected error during token exchange: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Unexpected error during token exchange: {str(e)}")
 
 if __name__ == "__main__":
     logger.info(f"Agent Tax Optimizer app initialized") 
