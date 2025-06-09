@@ -24,6 +24,19 @@ interface TokenFlow {
     message: string;
   };
   agent_tax_optimizer: {
+    token_exchange: {
+      request: {
+        grant_type: string;
+        audience: string;
+        scope: string;
+      };
+      response: any;
+      message: string;
+    };
+    calculator_response: {
+      message: string;
+      tax_result: any;
+    };
     response: any;
     message: string;
   };
@@ -61,9 +74,9 @@ const TokenFlowView: React.FC<{ tokenFlow: TokenFlow }> = ({ tokenFlow }) => {
             </pre>
           </div>
 
-          {/* Token Exchange */}
+          {/* First Token Exchange (for tax optimizer) */}
           <div>
-            <h4 className="text-sm font-medium text-gray-500">2. Token Exchange</h4>
+            <h4 className="text-sm font-medium text-gray-500">2. Token Exchange for Tax Optimizer</h4>
             <p className="text-sm text-gray-600">{tokenFlow.token_exchange.message}</p>
             <div className="mt-2 space-y-2">
               <div>
@@ -81,9 +94,38 @@ const TokenFlowView: React.FC<{ tokenFlow: TokenFlow }> = ({ tokenFlow }) => {
             </div>
           </div>
 
+          {/* Tax Optimizer Token Exchange (for calculator) */}
+          <div>
+            <h4 className="text-sm font-medium text-gray-500">3. Token Exchange for Calculator</h4>
+            <p className="text-sm text-gray-600">{tokenFlow.agent_tax_optimizer.token_exchange.message}</p>
+            <div className="mt-2 space-y-2">
+              <div>
+                <p className="text-xs text-gray-500">Request:</p>
+                <pre className="mt-1 bg-gray-50 p-4 rounded-md overflow-x-auto">
+                  {JSON.stringify(tokenFlow.agent_tax_optimizer.token_exchange.request, null, 2)}
+                </pre>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500">Response:</p>
+                <pre className="mt-1 bg-gray-50 p-4 rounded-md overflow-x-auto">
+                  {JSON.stringify(tokenFlow.agent_tax_optimizer.token_exchange.response, null, 2)}
+                </pre>
+              </div>
+            </div>
+          </div>
+
+          {/* Calculator Response */}
+          <div>
+            <h4 className="text-sm font-medium text-gray-500">4. Calculator Response</h4>
+            <p className="text-sm text-gray-600">{tokenFlow.agent_tax_optimizer.calculator_response.message}</p>
+            <pre className="mt-1 bg-gray-50 p-4 rounded-md overflow-x-auto">
+              {JSON.stringify(tokenFlow.agent_tax_optimizer.calculator_response.tax_result, null, 2)}
+            </pre>
+          </div>
+
           {/* Tax Optimizer Response */}
           <div>
-            <h4 className="text-sm font-medium text-gray-500">3. Tax Optimizer Response</h4>
+            <h4 className="text-sm font-medium text-gray-500">5. Tax Optimizer Response</h4>
             <p className="text-sm text-gray-600">{tokenFlow.agent_tax_optimizer.message}</p>
             <pre className="mt-1 bg-gray-50 p-4 rounded-md overflow-x-auto">
               {JSON.stringify(tokenFlow.agent_tax_optimizer.response, null, 2)}

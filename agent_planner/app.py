@@ -195,14 +195,33 @@ async def generate_plan(data: FinancialData, credentials: HTTPAuthorizationCrede
                         "scope": "tax:process"
                     },
                     "response": token_exchange_response,
+                    "decoded_token": jwt.get_unverified_claims(token_exchange_response.get("access_token", "")) if token_exchange_response.get("access_token") else {},
                     "message": "Exchanged for agent_tax_optimizer token"
                 },
                 "agent_tax_optimizer": {
+                    "original_token": {
+                        "decoded": tax_optimizer_response.get("original_token", {}).get("decoded", {}),
+                        "message": tax_optimizer_response.get("original_token", {}).get("message", "Token received by tax optimizer")
+                    },
+                    "token_exchange": {
+                        "request": {
+                            "grant_type": "urn:ietf:params:oauth:grant-type:token-exchange",
+                            "audience": "agent-calculator",
+                            "scope": "calculator:process"
+                        },
+                        "response": tax_optimizer_response.get("token_exchange", {}),
+                        "decoded_token": jwt.get_unverified_claims(tax_optimizer_response.get("token_exchange", {}).get("access_token", "")) if tax_optimizer_response.get("token_exchange", {}).get("access_token") else {},
+                        "message": "Exchanged for agent_calculator token"
+                    },
+                    "calculator_response": {
+                        "message": "Received response from calculator",
+                        "tax_result": tax_optimizer_response.get("calculator_response", {}).get("tax_result", {})
+                    },
                     "response": tax_optimizer_response,
                     "message": tax_optimizer_response.get("message", "Called agent_tax_optimizer successfully")
                 }
             },
-            "optimization_result": tax_optimizer_response.get("optimization_result", {})
+            "optimization_result": tax_optimizer_response.get("response", {}).get("optimization_result", {})
         }
         logger.info("Sending final response:")
         logger.info(f"Response data: {response_data}")

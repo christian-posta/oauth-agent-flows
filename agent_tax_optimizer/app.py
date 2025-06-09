@@ -202,12 +202,33 @@ async def optimize_tax(data: FinancialData, credentials: HTTPAuthorizationCreden
         # Return a response with token info and optimization results
         response = {
             "message": "Tax optimization completed",
-            "token_info": decoded_token,
-            "optimization_result": {
-                "estimated_savings": estimated_savings,
-                "recommendations": recommendations,
-                "calculator_result": tax_result
-            }
+            "original_token": {
+                "decoded": decoded_token,
+                "message": "Token received from agent_planner"
+            },
+            "token_exchange": {
+                "request": {
+                    "grant_type": "urn:ietf:params:oauth:grant-type:token-exchange",
+                    "audience": "agent-calculator",
+                    "scope": "tax:calculate"
+                },
+                "response": calculator_token_response,
+                "decoded_token": jwt.get_unverified_claims(calculator_token_response.get("access_token", "")) if calculator_token_response.get("access_token") else {},
+                "message": "Exchanged token for calculator service"
+            },
+            "calculator_response": {
+                "message": "Received response from calculator",
+                "tax_result": calculator_result.get("tax_result", {})
+            },
+            "response": {
+                "message": "Tax optimization completed",
+                "optimization_result": {
+                    "estimated_savings": estimated_savings,
+                    "recommendations": recommendations,
+                    "calculator_result": tax_result
+                }
+            },
+            "message": "Tax optimization completed"
         }
         logger.info("Sending response:")
         logger.info(f"Response data: {response}")
