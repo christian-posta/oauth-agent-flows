@@ -5,11 +5,13 @@ This demo implements a simple financial planning scenario using RFC 8693 Token E
 ## Architecture
 
 The system consists of the following components:
-1. User App (port 3000) - Web interface for user login
-2. Agent-Planner (port 8001) - Initial planning agent
-3. Agent-TaxOptimizer (port 8002) - Tax optimization agent
-4. Agent-Calculator (port 8003) - Tax calculation agent
-5. Tax API (port 8004) - Final tax calculation service
+* Keycloak (port 8081)
+* User App UI (port 5173) - UI / Web interface for user login
+* User App Backend (port 8000) - backend routes to service the UI
+* Agent-Planner (port 8001) - Initial planning agent
+* Agent-TaxOptimizer (port 8002) - Tax optimization agent
+* Agent-Calculator (port 8003) - Tax calculation agent
+* Tax API (port 8004) - Final tax calculation service
 
 ## Prerequisites
 
@@ -30,6 +32,8 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
+Note each project has its own requirements.txt file also. You'll need to import those as you start those services. 
+
 3. **Start Keycloak:**
 ```bash
 cd keycloak
@@ -37,18 +41,11 @@ docker-compose up -d
 ```
 
 4. **Configure Keycloak:**
-   - Access http://localhost:8080
-   - Login with admin/admin
-   - Create realm "ai-agents"
-   - Create clients:
-     - user-app
-     - agent-planner
-     - agent-tax-optimizer
-     - agent-calculator
-   - Enable "token exchange" on all agent clients
-   - Create scopes: financial:read, tax:process, tax:calculate
-   - Create a test user
-   - Get client secrets and update them in each module's `.env` file (see below)
+
+```bash
+cd scripts
+python setup_keycloak.py --config config.json --url http://localhost:8081 --debug --verbose
+```
 
 ## Environment Variables
 
@@ -63,6 +60,12 @@ REDIRECT_URI=http://localhost:3000/callback  # Only for user_app
 ```
 
 **Note:** Only include `REDIRECT_URI` in the `user_app/.env` file.
+
+Each should have an example.env file that you can just run:
+
+```bash
+cp example.env .env
+```
 
 ## Running the Services
 
