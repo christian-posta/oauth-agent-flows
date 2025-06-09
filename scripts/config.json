@@ -1,0 +1,193 @@
+{
+  "realm": {
+    "name": "ai-agents",
+    "displayName": "AI Agents Realm",
+    "enabled": true,
+    "accessTokenLifespan": 1800,
+    "accessTokenLifespanForImplicitFlow": 900,
+    "ssoSessionIdleTimeout": 1800,
+    "ssoSessionMaxLifespan": 36000,
+    "offlineSessionIdleTimeout": 2592000
+  },
+  "clients": [
+    {
+      "clientId": "user-web-app",
+      "name": "User Web Application",
+      "type": "public",
+      "enabled": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "redirectUris": [
+        "http://localhost:8000/callback",
+        "http://host.docker.internal:8000/callback",
+        "http://localhost:5173/callback"
+      ],
+      "webOrigins": [
+        "http://localhost:8000/callback",
+        "http://host.docker.internal:8000/callback",
+        "http://localhost:5173/callback"
+      ],
+      "tokenExchange": {
+        "enabled": false
+      },
+      "assignedScopes": {
+        "default": [
+          "agent-planner-audience", 
+          "agent-tax-optimizer-audience",
+          "financial:read",
+          "tax:process"
+        ],
+        "optional": []
+      }
+    },
+    {
+      "clientId": "agent-planner",
+      "name": "Agent Planner Service",
+      "type": "confidential",
+      "enabled": true,
+      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "tokenExchange": {
+        "enabled": true,
+        "allowRefreshToken": "same-session"
+      },
+      "assignedScopes": {
+        "default": [],
+        "optional": ["tax:process"]
+      },
+      "roles": [
+        {
+          "name": "planner",
+          "description": "Agent planner role"
+        }
+      ]
+    },
+    {
+      "clientId": "agent-tax-optimizer",
+      "name": "Agent Tax Optimizer Service",
+      "type": "confidential", 
+      "enabled": true,
+      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "tokenExchange": {
+        "enabled": false
+      },
+      "assignedScopes": {
+        "default": [],
+        "optional": []
+      },
+      "roles": [
+        {
+          "name": "user",
+          "description": "Basic user role for tax optimizer"
+        },
+        {
+          "name": "admin",
+          "description": "Admin role for tax optimizer"
+        }
+      ]
+    }
+  ],
+  "clientScopes": [
+    {
+      "name": "agent-planner-audience",
+      "description": "Adds agent-planner to token audience",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "display.on.consent.screen": "false"
+      },
+      "mappers": [
+        {
+          "name": "agent-planner-audience-mapper",
+          "type": "oidc-audience-mapper",
+          "config": {
+            "included.client.audience": "agent-planner",
+            "id.token.claim": "false",
+            "access.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "name": "agent-tax-optimizer-audience",
+      "description": "Adds agent-tax-optimizer to available audiences",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "display.on.consent.screen": "false"
+      },
+      "mappers": [
+        {
+          "name": "agent-tax-optimizer-audience-mapper",
+          "type": "oidc-audience-mapper",
+          "config": {
+            "included.client.audience": "agent-tax-optimizer",
+            "id.token.claim": "false",
+            "access.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "name": "tax:process",
+      "description": "Scope for tax processing operations",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "display.on.consent.screen": "true"
+      },
+      "mappers": []
+    },
+    {
+      "name": "financial:read",
+      "description": "Scope for reading financial data",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "display.on.consent.screen": "true"
+      },
+      "mappers": []
+    }
+  ],
+  "users": [
+    {
+      "username": "testuser",
+      "email": "testuser@example.com",
+      "firstName": "Test",
+      "lastName": "User",
+      "enabled": true,
+      "emailVerified": true,
+      "password": "password123",
+      "temporary": false,
+      "clientRoles": {
+        "agent-tax-optimizer": ["user"],
+        "agent-planner": ["planner"]
+      }
+    },
+    {
+      "username": "admin",
+      "email": "admin@example.com",
+      "firstName": "Admin",
+      "lastName": "User",
+      "enabled": true,
+      "emailVerified": true,
+      "password": "admin123",
+      "temporary": false,
+      "clientRoles": {
+        "agent-tax-optimizer": ["admin", "user"],
+        "agent-planner": ["planner"]
+      }
+    }
+  ],
+  "tokenExchangeRules": [
+    {
+      "description": "User Web App → Agent Planner → Tax Optimizer",
+      "requesterClient": "agent-planner",
+      "targetClients": ["agent-tax-optimizer"],
+      "allowedScopes": ["tax:process"]
+    }
+  ]
+}
