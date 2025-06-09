@@ -1,11 +1,16 @@
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from jose import jwt
+from jose import jwt, JWTError
 import os
 from dotenv import load_dotenv
 import httpx
 from pydantic import BaseModel
 import logging
+import json
+from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicNumbers
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import serialization
+import base64
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -36,6 +41,74 @@ class FinancialData(BaseModel):
     savings: float
     investments: float
 
+async def get_public_key():
+    """Fetch the public key from Keycloak's JWKS endpoint."""
+    jwks_url = f"{KEYCLOAK_URL}/realms/{REALM}/protocol/openid-connect/certs"
+    async with httpx.AsyncClient() as client:
+        response = await client.get(jwks_url)
+        jwks = response.json()
+        # Get the first key (usually there's only one)
+        key = jwks['keys'][0]
+        
+        # Convert JWK to PEM format
+        numbers = RSAPublicNumbers(
+            e=int.from_bytes(base64.urlsafe_b64decode(key['e'] + '==='), 'big'),
+            n=int.from_bytes(base64.urlsafe_b64decode(key['n'] + '==='), 'big')
+        )
+        public_key = numbers.public_key(backend=default_backend())
+        pem = public_key.public_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PublicFormat.SubjectPublicKeyInfo
+        )
+        return pem
+
+async def verify_token(token: str) -> dict:
+    """Verify the JWT token with proper validation."""
+    try:
+        # Get the public key
+        public_key = await get_public_key()
+        
+        # First try to decode without verification to help with debugging
+        try:
+            unverified_token = jwt.get_unverified_claims(token)
+            logger.info("Unverified token claims (for debugging):")
+            logger.info(json.dumps(unverified_token, indent=2))
+        except Exception as e:
+            logger.error(f"Failed to decode token even without verification: {str(e)}")
+        
+        # Log the expected issuer for debugging
+        expected_issuer = f"{KEYCLOAK_URL}/realms/{REALM}"
+        logger.info(f"Expected issuer: {expected_issuer}")
+        logger.info(f"Actual issuer from token: {unverified_token.get('iss')}")
+        
+        # Now verify and decode the token
+        decoded_token = jwt.decode(
+            token,
+            public_key,
+            algorithms=['RS256'],
+            audience=CLIENT_ID,  # Verify the token was intended for this service
+            issuer=expected_issuer  # Verify the token was issued by our Keycloak
+        )
+        
+        # Additional validation
+        if 'scope' not in decoded_token or 'tax:process' not in decoded_token['scope']:
+            logger.error(f"Token missing required scope. Token claims: {json.dumps(decoded_token, indent=2)}")
+            raise HTTPException(
+                status_code=403,
+                detail="Token does not have required scope: tax:process"
+            )
+            
+        return decoded_token
+        
+    except JWTError as e:
+        logger.error(f"Token verification failed: {str(e)}")
+        # Log the full error details
+        logger.error(f"Full error details: {repr(e)}")
+        raise HTTPException(status_code=401, detail=f"Invalid token: {str(e)}")
+    except Exception as e:
+        logger.error(f"Unexpected error during token verification: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error verifying token: {str(e)}")
+
 @app.post("/optimize")
 async def optimize_tax(data: FinancialData, credentials: HTTPAuthorizationCredentials = Depends(security)):
     """Optimize tax based on the received token."""
@@ -44,13 +117,9 @@ async def optimize_tax(data: FinancialData, credentials: HTTPAuthorizationCreden
         token = credentials.credentials
         logger.info(f"Received token: {token[:20]}...")  # Log first 20 chars for security
         
-        # Decode and verify the token
-        try:
-            decoded_token = jwt.get_unverified_claims(token)
-            logger.info("Successfully decoded token")
-        except Exception as e:
-            logger.error(f"Failed to decode token: {str(e)}")
-            raise HTTPException(status_code=401, detail=f"Invalid token format: {str(e)}")
+        # Verify the token
+        decoded_token = await verify_token(token)
+        logger.info("Successfully verified token")
         
         # Log the decoded token and financial data
         logger.info("Agent Tax Optimizer received token:")
