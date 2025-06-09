@@ -1,6 +1,6 @@
-# Agent Planner Service
+# Agent Tax Optimizer Service
 
-This service handles financial planning requests and coordinates with the tax optimizer service.
+This service provides tax optimization recommendations based on financial data.
 
 ## Setup
 
@@ -19,10 +19,9 @@ pip install -r requirements.txt
 ```
 KEYCLOAK_URL=http://localhost:8080
 REALM=master
-CLIENT_ID=agent-planner
+CLIENT_ID=agent-tax-optimizer
 CLIENT_SECRET=your-secret
-PORT=8001
-TAX_OPTIMIZER_URL=http://localhost:8002
+PORT=8002
 ```
 
 ## Running the Service
@@ -36,7 +35,7 @@ The service will automatically reload when you make changes to any Python files 
 
 ## API Endpoints
 
-- POST `/generate-plan`: Generate a financial plan
+- POST `/optimize`: Optimize tax strategy
   - Requires Bearer token authentication
   - Accepts financial data in the request body
-  - Returns plan details and token flow information
+  - Returns optimization recommendations and token information 

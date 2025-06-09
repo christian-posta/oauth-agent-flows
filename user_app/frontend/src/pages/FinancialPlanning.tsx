@@ -9,6 +9,92 @@ interface FinancialData {
   investments: number;
 }
 
+interface TokenFlow {
+  original_token: {
+    decoded: any;
+    message: string;
+  };
+  token_exchange: {
+    request: {
+      grant_type: string;
+      audience: string;
+      scope: string;
+    };
+    response: any;
+    message: string;
+  };
+  agent_tax_optimizer: {
+    response: any;
+    message: string;
+  };
+}
+
+interface PlanningResult {
+  message: string;
+  token_flow: TokenFlow;
+  optimization_result: {
+    estimated_savings: number;
+    recommendations: string[];
+  };
+}
+
+const TokenFlowView: React.FC<{ tokenFlow: TokenFlow }> = ({ tokenFlow }) => {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <div className="mt-4">
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="flex items-center text-sm font-medium text-blue-600 hover:text-blue-500"
+      >
+        <span>{expanded ? '▼' : '▶'} Token Flow Details</span>
+      </button>
+      
+      {expanded && (
+        <div className="mt-4 space-y-4">
+          {/* Original Token */}
+          <div>
+            <h4 className="text-sm font-medium text-gray-500">1. Original User Token</h4>
+            <p className="text-sm text-gray-600">{tokenFlow.original_token.message}</p>
+            <pre className="mt-1 bg-gray-50 p-4 rounded-md overflow-x-auto">
+              {JSON.stringify(tokenFlow.original_token.decoded, null, 2)}
+            </pre>
+          </div>
+
+          {/* Token Exchange */}
+          <div>
+            <h4 className="text-sm font-medium text-gray-500">2. Token Exchange</h4>
+            <p className="text-sm text-gray-600">{tokenFlow.token_exchange.message}</p>
+            <div className="mt-2 space-y-2">
+              <div>
+                <p className="text-xs text-gray-500">Request:</p>
+                <pre className="mt-1 bg-gray-50 p-4 rounded-md overflow-x-auto">
+                  {JSON.stringify(tokenFlow.token_exchange.request, null, 2)}
+                </pre>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500">Response:</p>
+                <pre className="mt-1 bg-gray-50 p-4 rounded-md overflow-x-auto">
+                  {JSON.stringify(tokenFlow.token_exchange.response, null, 2)}
+                </pre>
+              </div>
+            </div>
+          </div>
+
+          {/* Tax Optimizer Response */}
+          <div>
+            <h4 className="text-sm font-medium text-gray-500">3. Tax Optimizer Response</h4>
+            <p className="text-sm text-gray-600">{tokenFlow.agent_tax_optimizer.message}</p>
+            <pre className="mt-1 bg-gray-50 p-4 rounded-md overflow-x-auto">
+              {JSON.stringify(tokenFlow.agent_tax_optimizer.response, null, 2)}
+            </pre>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 const FinancialPlanning: React.FC = () => {
   const [financialData, setFinancialData] = useState<FinancialData>({
     income: 0,
@@ -17,11 +103,18 @@ const FinancialPlanning: React.FC = () => {
     investments: 0,
   });
 
-  const { data: planningResult, refetch: refetchPlanning } = useQuery(
+  const { data: planningResult, refetch: refetchPlanning } = useQuery<PlanningResult>(
     'financial-planning',
     async () => {
-      const response = await axios.post('/api/financial-planning', financialData);
-      return response.data;
+      console.log('Making request to /api/financial-planning with data:', financialData);
+      try {
+        const response = await axios.post('/api/financial-planning', financialData);
+        console.log('Received response:', response.data);
+        return response.data;
+      } catch (error) {
+        console.error('Error making request:', error);
+        throw error;
+      }
     },
     { enabled: false }
   );
@@ -36,8 +129,11 @@ const FinancialPlanning: React.FC = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('Form submitted with data:', financialData);
     refetchPlanning();
   };
+
+  console.log('Current planningResult:', planningResult);
 
   return (
     <div className="space-y-6">
@@ -119,15 +215,38 @@ const FinancialPlanning: React.FC = () => {
       </div>
 
       {planningResult && (
-        <div className="bg-white shadow sm:rounded-lg">
-          <div className="px-4 py-5 sm:p-6">
-            <h3 className="text-lg leading-6 font-medium text-gray-900">
-              Agent Planner Response
-            </h3>
-            <div className="mt-4">
-              <pre className="bg-gray-50 p-4 rounded-md overflow-x-auto">
-                {JSON.stringify(planningResult, null, 2)}
-              </pre>
+        <div className="space-y-6">
+          <div className="bg-white shadow sm:rounded-lg">
+            <div className="px-4 py-5 sm:p-6">
+              <h3 className="text-lg leading-6 font-medium text-gray-900">
+                Response
+              </h3>
+              <div className="mt-4 space-y-4">
+                <div>
+                  <h4 className="text-sm font-medium text-gray-500">Message</h4>
+                  <p className="text-sm text-gray-600">{planningResult.message}</p>
+                </div>
+
+                {planningResult.optimization_result && (
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-500">Optimization Results</h4>
+                    <div className="mt-2 bg-gray-50 p-4 rounded-md">
+                      <p className="text-sm text-gray-600">
+                        Estimated Savings: ${planningResult.optimization_result.estimated_savings}
+                      </p>
+                      <ul className="mt-2 list-disc pl-5 space-y-1">
+                        {planningResult.optimization_result.recommendations.map((rec, index) => (
+                          <li key={index} className="text-sm text-gray-600">{rec}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                )}
+
+                {planningResult.token_flow && (
+                  <TokenFlowView tokenFlow={planningResult.token_flow} />
+                )}
+              </div>
             </div>
           </div>
         </div>

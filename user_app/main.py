@@ -134,12 +134,16 @@ async def create_financial_plan(data: FinancialData, request: Request):
         try:
             response = await client.post(
                 "http://localhost:8001/generate-plan",
-                headers={"Authorization": f"Bearer {access_token}"}
+                headers={"Authorization": f"Bearer {access_token}"},
+                json=data.dict()  # Send the financial data
             )
             response.raise_for_status()
             return response.json()
         except httpx.HTTPError as e:
             print(f"Error calling agent_planner: {e}")
+            if hasattr(e, 'response'):
+                print(f"Response status: {e.response.status_code}")
+                print(f"Response body: {e.response.text}")
             raise HTTPException(status_code=500, detail="Failed to generate financial plan")
 
 @app.get("/login")

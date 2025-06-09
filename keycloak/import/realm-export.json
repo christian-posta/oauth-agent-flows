@@ -58,8 +58,12 @@
       "standardFlowEnabled": false,
       "serviceAccountsEnabled": true,
       "authorizationServicesEnabled": true,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "your-client-secret",
       "attributes": {
-        "token.exchange": "true"
+        "token.exchange": "true",
+        "token-exchange-enabled": "true",
+        "token-exchange-permission": "true"
       }
     },
     {
@@ -73,8 +77,12 @@
       "standardFlowEnabled": false,
       "serviceAccountsEnabled": true,
       "authorizationServicesEnabled": true,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "your-client-secret",
       "attributes": {
-        "token.exchange": "true"
+        "token.exchange": "true",
+        "token-exchange-enabled": "true",
+        "token-exchange-permission": "true"
       }
     },
     {

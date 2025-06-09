@@ -1,7 +1,7 @@
 
 services:
   keycloak:
-    image: quay.io/keycloak/keycloak:23.0
+    image: quay.io/keycloak/keycloak:26.2.5
     environment:
       KC_HEALTH_ENABLED: "true"
       KEYCLOAK_ADMIN: admin
