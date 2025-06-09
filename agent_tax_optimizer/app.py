@@ -41,40 +41,66 @@ class FinancialData(BaseModel):
     savings: float
     investments: float
 
-async def get_public_key():
+async def get_public_key() -> bytes:
     """Fetch the public key from Keycloak's JWKS endpoint."""
     jwks_url = f"{KEYCLOAK_URL}/realms/{REALM}/protocol/openid-connect/certs"
+    
+    logger.info("Fetching JWKS from Keycloak")
     async with httpx.AsyncClient() as client:
-        response = await client.get(jwks_url)
-        jwks = response.json()
-        # Get the first key (usually there's only one)
-        key = jwks['keys'][0]
-        
-        # Convert JWK to PEM format
-        numbers = RSAPublicNumbers(
-            e=int.from_bytes(base64.urlsafe_b64decode(key['e'] + '==='), 'big'),
-            n=int.from_bytes(base64.urlsafe_b64decode(key['n'] + '==='), 'big')
-        )
-        public_key = numbers.public_key(backend=default_backend())
-        pem = public_key.public_bytes(
-            encoding=serialization.Encoding.PEM,
-            format=serialization.PublicFormat.SubjectPublicKeyInfo
-        )
-        return pem
+        try:
+            response = await client.get(jwks_url)
+            response.raise_for_status()
+            jwks = response.json()
+            
+            # Log the available keys
+            logger.info(f"Available keys in JWKS: {json.dumps(jwks, indent=2)}")
+            
+            # Find the signing key
+            signing_key = None
+            for key in jwks['keys']:
+                if key.get('use') == 'sig' and key.get('alg') == 'RS256':
+                    signing_key = key
+                    break
+            
+            if not signing_key:
+                raise Exception("No suitable signing key found in JWKS")
+            
+            logger.info(f"Using signing key with kid: {signing_key.get('kid')}")
+            
+            # Convert JWK to PEM format
+            numbers = RSAPublicNumbers(
+                e=int.from_bytes(base64.urlsafe_b64decode(signing_key['e'] + '==='), 'big'),
+                n=int.from_bytes(base64.urlsafe_b64decode(signing_key['n'] + '==='), 'big')
+            )
+            public_key = numbers.public_key(backend=default_backend())
+            pem = public_key.public_bytes(
+                encoding=serialization.Encoding.PEM,
+                format=serialization.PublicFormat.SubjectPublicKeyInfo
+            )
+            return pem
+            
+        except Exception as e:
+            logger.error(f"Error fetching JWKS: {str(e)}")
+            raise
 
 async def verify_token(token: str) -> dict:
     """Verify the JWT token with proper validation."""
     try:
-        # Get the public key
-        public_key = await get_public_key()
-        
         # First try to decode without verification to help with debugging
         try:
             unverified_token = jwt.get_unverified_claims(token)
             logger.info("Unverified token claims (for debugging):")
             logger.info(json.dumps(unverified_token, indent=2))
+            
+            # Log the key ID from the token header
+            token_header = jwt.get_unverified_header(token)
+            logger.info(f"Token header: {json.dumps(token_header, indent=2)}")
+            
         except Exception as e:
             logger.error(f"Failed to decode token even without verification: {str(e)}")
+        
+        # Get the public key
+        public_key = await get_public_key()
         
         # Log the expected issuer for debugging
         expected_issuer = f"{KEYCLOAK_URL}/realms/{REALM}"
