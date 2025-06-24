@@ -73,21 +73,12 @@ Each service loads its configuration from its `.env` file using `python-dotenv`.
 
 Start each service in a separate terminal:
 
+You will need to run the ui and ui-backend to support the UI. 
+
+Each folder has its own run_local.sh script
+
 ```bash
-# Terminal 1
-python user_app/app.py
-
-# Terminal 2
-python agent_planner/app.py
-
-# Terminal 3
-python agent_tax_optimizer/app.py
-
-# Terminal 4
-python agent_calculator/app.py
-
-# Terminal 5
-python tax_api/app.py
+./run_local.sh
 ```
 
 ## Testing the Flow
