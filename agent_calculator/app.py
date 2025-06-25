@@ -11,6 +11,20 @@ from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicNumbers
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 import base64
+import asyncio
+import uuid
+
+# A2A imports
+from a2a.server.agent_execution import AgentExecutor
+from a2a.server.apps import A2AStarletteApplication
+from a2a.server.request_handlers import DefaultRequestHandler
+from a2a.server.tasks import InMemoryTaskStore
+from a2a.types import AgentCard, Message, TextPart
+from a2a.server.agent_execution.context import RequestContext
+from a2a.server.events.event_queue import EventQueue
+
+# Local imports
+from calculator import TaxCalculator
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -21,6 +35,9 @@ load_dotenv()
 
 app = FastAPI(title="Agent Calculator Service")
 security = HTTPBearer()
+
+# Initialize the tax calculator
+tax_calculator = TaxCalculator()
 
 # Configuration
 KEYCLOAK_URL = os.getenv("KEYCLOAK_URL")
@@ -129,6 +146,119 @@ async def verify_token(token: str) -> dict:
         logger.error(f"Unexpected error during token verification: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error verifying token: {str(e)}")
 
+
+class TaxCalculatorAgentExecutor(AgentExecutor):
+    """A2A Agent Executor for the Tax Calculator service."""
+    
+    def __init__(self, calculator: TaxCalculator):
+        """Initialize with a tax calculator instance."""
+        self.calculator = calculator
+        super().__init__()
+    
+    async def execute(self, context: RequestContext, event_queue: EventQueue) -> None:
+        """
+        Execute a task represented by a message and put results in the event queue.
+        This is the main execution method required by the AgentExecutor interface.
+        
+        Args:
+            context: The A2A request context containing the message and metadata
+            event_queue: Event queue to put results in for streaming to the client
+        """
+        logger.info("A2A Tax Calculator executing task")
+        
+        try:
+            # Extract text content from the context
+            user_input = context.get_user_input()
+            logger.info(f"User input: {user_input}")
+            
+            # Perform tax calculation
+            calculation_result = self.calculator.calculate_tax()
+            
+            # Analyze user input to provide relevant response
+            user_input_lower = user_input.lower()
+            
+            if "rate" in user_input_lower or "percentage" in user_input_lower:
+                response_text = f"Current Tax Rates:\n"
+                response_text += f"• Federal Tax Rate: {calculation_result['tax_result']['federal_tax_rate']:.1%}\n"
+                response_text += f"• State Tax Rate: {calculation_result['tax_result']['state_tax_rate']:.1%}\n"
+                response_text += f"• Effective Tax Rate: {calculation_result['tax_result']['effective_tax_rate']:.1%}\n"
+                
+            elif "bracket" in user_input_lower:
+                response_text = "Current Tax Brackets:\n"
+                for bracket in calculation_result['tax_result']['tax_brackets']:
+                    if bracket['max'] is None:
+                        response_text += f"• ${bracket['min']:,}+: {bracket['rate']:.1%}\n"
+                    else:
+                        response_text += f"• ${bracket['min']:,} - ${bracket['max']:,}: {bracket['rate']:.1%}\n"
+                        
+            elif "deduction" in user_input_lower:
+                response_text = "Available Deductions:\n"
+                response_text += f"• Standard Deduction: ${calculation_result['tax_result']['deductions']['standard_deduction']:,}\n"
+                response_text += f"• Itemized Deductions Available: Mortgage Interest, Property Tax, Charitable Contributions\n"
+                
+            elif "credit" in user_input_lower:
+                response_text = "Available Tax Credits:\n"
+                response_text += f"• Child Tax Credit: ${calculation_result['tax_result']['credits']['child_tax_credit']:,}\n"
+                response_text += f"• Earned Income Credit: Available based on income level\n"
+                
+            else:
+                # Default comprehensive response
+                response_text = f"{calculation_result['message']}\n\nTax Calculation Summary:\n"
+                response_text += f"• Federal Tax Rate: {calculation_result['tax_result']['federal_tax_rate']:.1%}\n"
+                response_text += f"• State Tax Rate: {calculation_result['tax_result']['state_tax_rate']:.1%}\n"
+                response_text += f"• Effective Tax Rate: {calculation_result['tax_result']['effective_tax_rate']:.1%}\n"
+                response_text += f"• Standard Deduction: ${calculation_result['tax_result']['deductions']['standard_deduction']:,}\n"
+                response_text += f"• Child Tax Credit: ${calculation_result['tax_result']['credits']['child_tax_credit']:,}\n"
+                
+                # Add tax brackets info
+                response_text += "\nTax Brackets:\n"
+                for bracket in calculation_result['tax_result']['tax_brackets']:
+                    if bracket['max'] is None:
+                        response_text += f"• ${bracket['min']:,}+: {bracket['rate']:.1%}\n"
+                    else:
+                        response_text += f"• ${bracket['min']:,} - ${bracket['max']:,}: {bracket['rate']:.1%}\n"
+            
+            logger.info("A2A Tax calculation completed successfully")
+            
+            # Send the single response (no streaming)
+            await event_queue.enqueue_event(Message(
+                messageId=str(uuid.uuid4()),
+                role="agent",
+                parts=[TextPart(
+                    type="text",
+                    text=response_text
+                )]
+            ))
+            
+        except Exception as e:
+            logger.error(f"Error in A2A tax calculation: {str(e)}")
+            error_message = f"Sorry, I encountered an error while calculating tax information: {str(e)}"
+            
+            await event_queue.enqueue_event(Message(
+                messageId=str(uuid.uuid4()),
+                role="agent",
+                parts=[TextPart(
+                    type="text",
+                    text=error_message
+                )]
+            ))
+    
+    async def cancel(self, task_id: str) -> bool:
+        """
+        Cancel a running task by task ID.
+        
+        Args:
+            task_id: The ID of the task to cancel
+            
+        Returns:
+            bool: True if task was successfully cancelled, False otherwise
+        """
+        logger.info(f"A2A Tax Calculator received cancel request for task: {task_id}")
+        # For this simple calculator agent, we don't have long-running tasks to cancel
+        # In a real implementation, you would track running tasks and cancel them here
+        logger.info(f"Task {task_id} cancellation completed (no-op for this agent)")
+        return True
+
 @app.post("/api/calculate")
 async def calculate_tax(credentials: HTTPAuthorizationCredentials = Depends(security)):
     """Calculate tax based on the received token."""
@@ -145,40 +275,8 @@ async def calculate_tax(credentials: HTTPAuthorizationCredentials = Depends(secu
         logger.info("Agent Calculator received token:")
         logger.info(f"Decoded token: {decoded_token}")
         
-        # Simulate tax calculations
-        # In a real implementation, this would use actual tax calculation logic
-        tax_calculations = {
-            "federal_tax_rate": 0.22,  # Example: 22% federal tax rate
-            "state_tax_rate": 0.05,    # Example: 5% state tax rate
-            "effective_tax_rate": 0.27, # Combined rate
-            "tax_brackets": [
-                {"min": 0, "max": 10000, "rate": 0.10},
-                {"min": 10000, "max": 40000, "rate": 0.12},
-                {"min": 40000, "max": 85000, "rate": 0.22},
-                {"min": 85000, "max": 163300, "rate": 0.24},
-                {"min": 163300, "max": 207350, "rate": 0.32},
-                {"min": 207350, "max": 518400, "rate": 0.35},
-                {"min": 518400, "max": None, "rate": 0.37}
-            ],
-            "deductions": {
-                "standard_deduction": 12950,
-                "itemized_deductions": {
-                    "mortgage_interest": 0,
-                    "property_tax": 0,
-                    "charitable_contributions": 0
-                }
-            },
-            "credits": {
-                "child_tax_credit": 2000,
-                "earned_income_credit": 0
-            }
-        }
-        
-        # Return the calculation results
-        response = {
-            "message": "Tax calculations completed",
-            "tax_result": tax_calculations
-        }
+        # Use the tax calculator with the token context
+        response = tax_calculator.calculate_tax(context=decoded_token)
         logger.info("Sending response:")
         logger.info(f"Response data: {response}")
         return response
@@ -187,7 +285,76 @@ async def calculate_tax(credentials: HTTPAuthorizationCredentials = Depends(secu
         logger.error(f"Error in calculate_tax: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error calculating tax: {str(e)}")
 
+
+# A2A Setup
+def setup_a2a_server():
+    """Set up the A2A server with proper FastAPI integration."""
+    
+    # Create agent card
+    agent_card = AgentCard(
+        name="Tax Calculator Agent",
+        description="Provides tax calculation information including rates, brackets, deductions, and credits",
+        url="http://localhost:8003",
+        version="1.0.0",
+        capabilities={
+            "streaming": False,  # Disable streaming by default
+            "pushNotifications": False,
+            "stateTransitionHistory": False
+        },
+        defaultInputModes=["text", "text/plain"],
+        defaultOutputModes=["text", "text/plain"],
+        skills=[{
+            "id": "tax_calculation",
+            "name": "Tax Calculation",
+            "description": "Calculate tax rates, brackets, deductions, and credits",
+            "tags": ["tax", "calculation", "finance"],
+            "examples": [
+                "What are the current tax rates?",
+                "Calculate tax information",
+                "Show me tax brackets",
+                "What deductions are available?"
+            ]
+        }]
+    )
+    
+    # Create A2A components
+    task_store = InMemoryTaskStore()
+    agent_executor = TaxCalculatorAgentExecutor(tax_calculator)
+    request_handler = DefaultRequestHandler(
+        agent_executor=agent_executor,
+        task_store=task_store,
+    )
+    
+    # Create A2A JSON-RPC app
+    a2a_app = A2AStarletteApplication(
+        agent_card=agent_card,
+        http_handler=request_handler
+    )
+    
+    # Get the Starlette app from A2A
+    starlette_app = a2a_app.build()
+    
+    # Add agent card endpoint
+    @app.get("/a2a/.well-known/agent.json")
+    async def get_agent_card():
+        """Return the agent card for A2A discovery."""
+        return agent_card.model_dump()
+    
+    # Mount the A2A JSON-RPC endpoints
+    app.mount("/a2a", starlette_app)
+    
+    logger.info("A2A server properly integrated with FastAPI")
+    logger.info("Agent card available at /a2a/.well-known/agent.json")
+    logger.info("A2A RPC endpoint available at /a2a/")
+
+
+# Set up A2A server
+setup_a2a_server()
+
 if __name__ == "__main__":
     logger.info(f"Agent Calculator app initialized")
+    logger.info(f"REST API available at http://localhost:{PORT}/api/calculate")
+    logger.info(f"A2A Agent available at http://localhost:{PORT}/a2a")
+    logger.info(f"A2A Agent Card available at http://localhost:{PORT}/a2a/.well-known/agent.json")
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=PORT) 

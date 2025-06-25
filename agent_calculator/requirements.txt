@@ -1,6 +1,7 @@
-fastapi==0.104.1
-uvicorn==0.24.0
+fastapi>=0.115.2
+uvicorn>=0.24.0
 python-jose==3.3.0
 python-dotenv==1.0.0
-httpx==0.25.1
-cryptography==41.0.5 
+httpx>=0.28.1
+cryptography>=41.0.5
+a2a-sdk>=0.2.6 
