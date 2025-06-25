@@ -209,9 +209,9 @@ async def generate_plan(data: FinancialData, credentials: HTTPAuthorizationCrede
                             "audience": "agent-calculator",
                             "scope": "calculator:process"
                         },
-                        "response": tax_optimizer_response.get("token_exchange", {}),
-                        "decoded_token": jwt.get_unverified_claims(tax_optimizer_response.get("token_exchange", {}).get("access_token", "")) if tax_optimizer_response.get("token_exchange", {}).get("access_token") else {},
-                        "message": "Exchanged for agent_calculator token"
+                        "response": tax_optimizer_response.get("token_exchange", {}).get("response", {}),
+                        "decoded_token": tax_optimizer_response.get("token_exchange", {}).get("decoded_token", {}),
+                        "message": tax_optimizer_response.get("token_exchange", {}).get("message", "Exchanged for agent_calculator token")
                     },
                     "calculator_response": {
                         "message": "Received response from calculator",

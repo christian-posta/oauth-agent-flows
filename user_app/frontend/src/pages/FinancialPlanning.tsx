@@ -21,6 +21,7 @@ interface TokenFlow {
       scope: string;
     };
     response: any;
+    decoded_token?: any;
     message: string;
   };
   agent_tax_optimizer: {
@@ -35,6 +36,7 @@ interface TokenFlow {
         scope: string;
       };
       response: any;
+      decoded_token?: any;
       message: string;
     };
     calculator_response: {
@@ -124,6 +126,24 @@ const TokenFlowView: React.FC<{ tokenFlow: TokenFlow }> = ({ tokenFlow }) => {
                   </pre>
                 </div>
               </div>
+              
+              <div>
+                <p className="text-xs text-blue-500 mb-1">Decoded Exchanged Token:</p>
+                <div className="bg-white p-3 rounded-md border border-blue-200">
+                  <pre className="text-xs overflow-x-auto">
+                    {JSON.stringify(tokenFlow.token_exchange.decoded_token || {}, null, 2)}
+                  </pre>
+                </div>
+              </div>
+              
+              <div>
+                <p className="text-xs text-blue-500 mb-1">Debug - Full Token Exchange Data:</p>
+                <div className="bg-white p-3 rounded-md border border-blue-200">
+                  <pre className="text-xs overflow-x-auto">
+                    {JSON.stringify(tokenFlow.token_exchange, null, 2)}
+                  </pre>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -159,6 +179,24 @@ const TokenFlowView: React.FC<{ tokenFlow: TokenFlow }> = ({ tokenFlow }) => {
                   </pre>
                 </div>
               </div>
+              
+              <div>
+                <p className="text-xs text-green-500 mb-1">Decoded Exchanged Token:</p>
+                <div className="bg-white p-3 rounded-md border border-green-200">
+                  <pre className="text-xs overflow-x-auto">
+                    {JSON.stringify(tokenFlow.agent_tax_optimizer.token_exchange.decoded_token || tokenFlow.agent_tax_optimizer.token_exchange?.decoded_token || {}, null, 2)}
+                  </pre>
+                </div>
+              </div>
+              
+              <div>
+                <p className="text-xs text-green-500 mb-1">Debug - Full Token Exchange Data:</p>
+                <div className="bg-white p-3 rounded-md border border-green-200">
+                  <pre className="text-xs overflow-x-auto">
+                    {JSON.stringify(tokenFlow.agent_tax_optimizer.token_exchange, null, 2)}
+                  </pre>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -173,6 +211,15 @@ const TokenFlowView: React.FC<{ tokenFlow: TokenFlow }> = ({ tokenFlow }) => {
                 <div className="bg-white p-3 rounded-md border border-purple-200">
                   <pre className="text-xs overflow-x-auto">
                     {JSON.stringify(tokenFlow.agent_tax_optimizer.token_exchange.response, null, 2)}
+                  </pre>
+                </div>
+              </div>
+              
+              <div>
+                <p className="text-xs text-purple-500 mb-1">Decoded Received Token:</p>
+                <div className="bg-white p-3 rounded-md border border-purple-200">
+                  <pre className="text-xs overflow-x-auto">
+                    {JSON.stringify(tokenFlow.agent_tax_optimizer.token_exchange.decoded_token || {}, null, 2)}
                   </pre>
                 </div>
               </div>
