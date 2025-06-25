@@ -177,7 +177,11 @@ class TaxCalculatorAgentExecutor(AgentExecutor):
             # Analyze user input to provide relevant response
             user_input_lower = user_input.lower()
             
-            if "rate" in user_input_lower or "percentage" in user_input_lower:
+            if "structured" in user_input_lower or "json" in user_input_lower or "machine readable" in user_input_lower:
+                # Return structured JSON data instead of formatted text
+                response_text = json.dumps(calculation_result['tax_result'], indent=2)
+
+            elif "rate" in user_input_lower or "percentage" in user_input_lower:
                 response_text = f"Current Tax Rates:\n"
                 response_text += f"• Federal Tax Rate: {calculation_result['tax_result']['federal_tax_rate']:.1%}\n"
                 response_text += f"• State Tax Rate: {calculation_result['tax_result']['state_tax_rate']:.1%}\n"

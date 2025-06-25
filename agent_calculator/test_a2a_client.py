@@ -203,6 +203,53 @@ def main():
                     if part.get("type") == "text":
                         print(f"Tax Brackets Response: {part.get('text', '')}")
         
+        # 5. Test structured output
+        print("\n5. Testing structured output...")
+        response = client.send_message("Give me structured output")
+        
+        if "result" in response:
+            result = response["result"]
+            if isinstance(result, dict) and "parts" in result:
+                for part in result["parts"]:
+                    if part.get("type") == "text":
+                        print(f"Structured Response: {part.get('text', '')}")
+                        # Try to parse as JSON to verify it's structured
+                        try:
+                            structured_data = json.loads(part.get('text', ''))
+                            print("✅ Successfully parsed as JSON:")
+                            print(f"   Federal Tax Rate: {structured_data.get('federal_tax_rate', 'N/A')}")
+                            print(f"   State Tax Rate: {structured_data.get('state_tax_rate', 'N/A')}")
+                            print(f"   Standard Deduction: ${structured_data.get('deductions', {}).get('standard_deduction', 'N/A'):,}")
+                        except json.JSONDecodeError:
+                            print("❌ Response is not valid JSON")
+        
+        # 6. Test structured output with different keywords
+        print("\n6. Testing structured output with different keywords...")
+        structured_keywords = [
+            "structured output",
+            "json format", 
+            "structured data",
+            "machine readable"
+        ]
+        
+        for keyword in structured_keywords:
+            print(f"\n   Testing keyword: '{keyword}'")
+            response = client.send_message(f"Give me {keyword}")
+            
+            if "result" in response:
+                result = response["result"]
+                if isinstance(result, dict) and "parts" in result:
+                    for part in result["parts"]:
+                        if part.get("type") == "text":
+                            try:
+                                structured_data = json.loads(part.get('text', ''))
+                                print(f"   ✅ '{keyword}' returned structured JSON")
+                            except json.JSONDecodeError:
+                                print(f"   ❌ '{keyword}' returned formatted text (not JSON)")
+                                print(f"      Response: {part.get('text', '')[:100]}...")
+
+        
+        
     except requests.exceptions.ConnectionError:
         print(f"Error: Could not connect to agent at {agent_url}")
         print("Make sure your agent is running with: ./run-local.sh")
