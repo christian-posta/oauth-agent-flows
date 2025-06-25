@@ -24,6 +24,10 @@ interface TokenFlow {
     message: string;
   };
   agent_tax_optimizer: {
+    original_token?: {
+      decoded: any;
+      message: string;
+    };
     token_exchange: {
       request: {
         grant_type: string;
@@ -47,7 +51,18 @@ interface PlanningResult {
   token_flow: TokenFlow;
   optimization_result: {
     estimated_savings: number;
+    monthly_savings_potential?: number;
+    current_tax_burden?: number;
+    effective_tax_rate?: number;
+    retirement_impact?: number;
     recommendations: string[];
+    financial_summary?: {
+      annual_income: number;
+      annual_expenses: number;
+      current_savings: number;
+      current_investments: number;
+      savings_rate: number;
+    };
   };
 }
 
@@ -58,81 +73,253 @@ const TokenFlowView: React.FC<{ tokenFlow: TokenFlow }> = ({ tokenFlow }) => {
     <div className="mt-4">
       <button
         onClick={() => setExpanded(!expanded)}
-        className="flex items-center text-sm font-medium text-blue-600 hover:text-blue-500"
+        className="flex items-center text-sm font-medium text-gray-600 hover:text-gray-500"
       >
-        <span>{expanded ? '▼' : '▶'} Token Flow Details</span>
+        <span>{expanded ? '▼' : '▶'} Technical Details (Token Flow)</span>
       </button>
       
       {expanded && (
-        <div className="mt-4 space-y-4">
-          {/* Original Token */}
-          <div>
-            <h4 className="text-sm font-medium text-gray-500">1. Original User Token</h4>
-            <p className="text-sm text-gray-600">{tokenFlow.original_token.message}</p>
-            <pre className="mt-1 bg-gray-50 p-4 rounded-md overflow-x-auto">
-              {JSON.stringify(tokenFlow.original_token.decoded, null, 2)}
-            </pre>
+        <div className="mt-4 space-y-6">
+          {/* User App Section */}
+          <div className="border border-gray-200 rounded-lg p-4">
+            <h4 className="text-lg font-semibold text-gray-800 mb-3">1. User Application</h4>
+            <p className="text-sm text-gray-600 mb-3">The user's original token that was sent to the Agent Planner</p>
+            <div className="bg-gray-50 p-3 rounded-md">
+              <p className="text-xs text-gray-500 mb-2">Original User Token:</p>
+              <pre className="text-xs overflow-x-auto">
+                {JSON.stringify(tokenFlow.original_token.decoded, null, 2)}
+              </pre>
+            </div>
           </div>
 
-          {/* First Token Exchange (for tax optimizer) */}
-          <div>
-            <h4 className="text-sm font-medium text-gray-500">2. Token Exchange for Tax Optimizer</h4>
-            <p className="text-sm text-gray-600">{tokenFlow.token_exchange.message}</p>
-            <div className="mt-2 space-y-2">
+          {/* Agent Planner Section */}
+          <div className="border border-blue-200 rounded-lg p-4 bg-blue-50">
+            <h4 className="text-lg font-semibold text-blue-800 mb-3">2. Agent Planner Service</h4>
+            <p className="text-sm text-blue-600 mb-3">Received user token and exchanged it for Tax Optimizer access</p>
+            
+            <div className="space-y-3">
               <div>
-                <p className="text-xs text-gray-500">Request:</p>
-                <pre className="mt-1 bg-gray-50 p-4 rounded-md overflow-x-auto">
-                  {JSON.stringify(tokenFlow.token_exchange.request, null, 2)}
-                </pre>
+                <p className="text-xs text-blue-500 mb-1">Received Token (from User):</p>
+                <div className="bg-white p-3 rounded-md border border-blue-200">
+                  <pre className="text-xs overflow-x-auto">
+                    {JSON.stringify(tokenFlow.original_token.decoded, null, 2)}
+                  </pre>
+                </div>
               </div>
+              
               <div>
-                <p className="text-xs text-gray-500">Response:</p>
-                <pre className="mt-1 bg-gray-50 p-4 rounded-md overflow-x-auto">
-                  {JSON.stringify(tokenFlow.token_exchange.response, null, 2)}
-                </pre>
+                <p className="text-xs text-blue-500 mb-1">Token Exchange Request (for Tax Optimizer):</p>
+                <div className="bg-white p-3 rounded-md border border-blue-200">
+                  <pre className="text-xs overflow-x-auto">
+                    {JSON.stringify(tokenFlow.token_exchange.request, null, 2)}
+                  </pre>
+                </div>
+              </div>
+              
+              <div>
+                <p className="text-xs text-blue-500 mb-1">Token Exchange Response:</p>
+                <div className="bg-white p-3 rounded-md border border-blue-200">
+                  <pre className="text-xs overflow-x-auto">
+                    {JSON.stringify(tokenFlow.token_exchange.response, null, 2)}
+                  </pre>
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Tax Optimizer Token Exchange (for calculator) */}
-          <div>
-            <h4 className="text-sm font-medium text-gray-500">3. Token Exchange for Calculator</h4>
-            <p className="text-sm text-gray-600">{tokenFlow.agent_tax_optimizer.token_exchange.message}</p>
-            <div className="mt-2 space-y-2">
+          {/* Tax Optimizer Section */}
+          <div className="border border-green-200 rounded-lg p-4 bg-green-50">
+            <h4 className="text-lg font-semibold text-green-800 mb-3">3. Tax Optimizer Service</h4>
+            <p className="text-sm text-green-600 mb-3">Received planner token and exchanged it for Calculator access</p>
+            
+            <div className="space-y-3">
               <div>
-                <p className="text-xs text-gray-500">Request:</p>
-                <pre className="mt-1 bg-gray-50 p-4 rounded-md overflow-x-auto">
-                  {JSON.stringify(tokenFlow.agent_tax_optimizer.token_exchange.request, null, 2)}
-                </pre>
+                <p className="text-xs text-green-500 mb-1">Received Token (from Planner):</p>
+                <div className="bg-white p-3 rounded-md border border-green-200">
+                  <pre className="text-xs overflow-x-auto">
+                    {JSON.stringify(tokenFlow.agent_tax_optimizer.original_token?.decoded || {}, null, 2)}
+                  </pre>
+                </div>
               </div>
+              
               <div>
-                <p className="text-xs text-gray-500">Response:</p>
-                <pre className="mt-1 bg-gray-50 p-4 rounded-md overflow-x-auto">
-                  {JSON.stringify(tokenFlow.agent_tax_optimizer.token_exchange.response, null, 2)}
-                </pre>
+                <p className="text-xs text-green-500 mb-1">Token Exchange Request (for Calculator):</p>
+                <div className="bg-white p-3 rounded-md border border-green-200">
+                  <pre className="text-xs overflow-x-auto">
+                    {JSON.stringify(tokenFlow.agent_tax_optimizer.token_exchange.request, null, 2)}
+                  </pre>
+                </div>
+              </div>
+              
+              <div>
+                <p className="text-xs text-green-500 mb-1">Token Exchange Response:</p>
+                <div className="bg-white p-3 rounded-md border border-green-200">
+                  <pre className="text-xs overflow-x-auto">
+                    {JSON.stringify(tokenFlow.agent_tax_optimizer.token_exchange.response, null, 2)}
+                  </pre>
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Calculator Response */}
-          <div>
-            <h4 className="text-sm font-medium text-gray-500">4. Calculator Response</h4>
-            <p className="text-sm text-gray-600">{tokenFlow.agent_tax_optimizer.calculator_response.message}</p>
-            <pre className="mt-1 bg-gray-50 p-4 rounded-md overflow-x-auto">
-              {JSON.stringify(tokenFlow.agent_tax_optimizer.calculator_response.tax_result, null, 2)}
-            </pre>
+          {/* Calculator Section */}
+          <div className="border border-purple-200 rounded-lg p-4 bg-purple-50">
+            <h4 className="text-lg font-semibold text-purple-800 mb-3">4. Calculator Service</h4>
+            <p className="text-sm text-purple-600 mb-3">Received tax optimizer token and processed the calculation</p>
+            
+            <div className="space-y-3">
+              <div>
+                <p className="text-xs text-purple-500 mb-1">Received Token (from Tax Optimizer):</p>
+                <div className="bg-white p-3 rounded-md border border-purple-200">
+                  <pre className="text-xs overflow-x-auto">
+                    {JSON.stringify(tokenFlow.agent_tax_optimizer.token_exchange.response, null, 2)}
+                  </pre>
+                </div>
+              </div>
+              
+              <div>
+                <p className="text-xs text-purple-500 mb-1">Calculation Response:</p>
+                <div className="bg-white p-3 rounded-md border border-purple-200">
+                  <pre className="text-xs overflow-x-auto">
+                    {JSON.stringify(tokenFlow.agent_tax_optimizer.calculator_response.tax_result, null, 2)}
+                  </pre>
+                </div>
+              </div>
+            </div>
           </div>
 
-          {/* Tax Optimizer Response */}
-          <div>
-            <h4 className="text-sm font-medium text-gray-500">5. Tax Optimizer Response</h4>
-            <p className="text-sm text-gray-600">{tokenFlow.agent_tax_optimizer.message}</p>
-            <pre className="mt-1 bg-gray-50 p-4 rounded-md overflow-x-auto">
-              {JSON.stringify(tokenFlow.agent_tax_optimizer.response, null, 2)}
-            </pre>
+          {/* Final Response Section */}
+          <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+            <h4 className="text-lg font-semibold text-gray-800 mb-3">5. Final Response</h4>
+            <p className="text-sm text-gray-600 mb-3">Tax Optimizer's final response with optimization results</p>
+            
+            <div className="bg-white p-3 rounded-md border border-gray-200">
+              <pre className="text-xs overflow-x-auto">
+                {JSON.stringify(tokenFlow.agent_tax_optimizer.response, null, 2)}
+              </pre>
+            </div>
           </div>
         </div>
       )}
+    </div>
+  );
+};
+
+const FinancialResultsView: React.FC<{ optimizationResult: any }> = ({ optimizationResult }) => {
+  return (
+    <div className="space-y-6">
+      {/* Estimated Savings Card */}
+      <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg p-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-lg font-semibold text-green-800">Estimated Annual Savings</h3>
+            <p className="text-sm text-green-600 mt-1">Based on your financial profile</p>
+          </div>
+          <div className="text-right">
+            <div className="text-3xl font-bold text-green-800">
+              ${optimizationResult.estimated_savings.toLocaleString()}
+            </div>
+            <div className="text-sm text-green-600">per year</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Financial Metrics Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-white border border-gray-200 rounded-lg p-4">
+          <h4 className="text-sm font-medium text-gray-500">Monthly Savings</h4>
+          <p className="text-2xl font-bold text-blue-600">
+            ${optimizationResult.monthly_savings_potential?.toLocaleString() || '0'}
+          </p>
+        </div>
+        
+        <div className="bg-white border border-gray-200 rounded-lg p-4">
+          <h4 className="text-sm font-medium text-gray-500">Current Tax Rate</h4>
+          <p className="text-2xl font-bold text-red-600">
+            {(optimizationResult.effective_tax_rate * 100).toFixed(1)}%
+          </p>
+        </div>
+        
+        <div className="bg-white border border-gray-200 rounded-lg p-4">
+          <h4 className="text-sm font-medium text-gray-500">Tax Burden</h4>
+          <p className="text-2xl font-bold text-red-600">
+            ${optimizationResult.current_tax_burden?.toLocaleString() || '0'}
+          </p>
+        </div>
+        
+        <div className="bg-white border border-gray-200 rounded-lg p-4">
+          <h4 className="text-sm font-medium text-gray-500">20-Year Impact</h4>
+          <p className="text-2xl font-bold text-green-600">
+            ${optimizationResult.retirement_impact?.toLocaleString() || '0'}
+          </p>
+        </div>
+      </div>
+
+      {/* Financial Summary Card */}
+      {optimizationResult.financial_summary && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
+          <h3 className="text-lg font-semibold text-blue-800 mb-4">Your Financial Summary</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <p className="text-sm text-blue-600">Annual Income</p>
+              <p className="text-lg font-semibold text-blue-800">
+                ${optimizationResult.financial_summary.annual_income?.toLocaleString() || '0'}
+              </p>
+            </div>
+            <div>
+              <p className="text-sm text-blue-600">Annual Expenses</p>
+              <p className="text-lg font-semibold text-blue-800">
+                ${optimizationResult.financial_summary.annual_expenses?.toLocaleString() || '0'}
+              </p>
+            </div>
+            <div>
+              <p className="text-sm text-blue-600">Current Savings</p>
+              <p className="text-lg font-semibold text-blue-800">
+                ${optimizationResult.financial_summary.current_savings?.toLocaleString() || '0'}
+              </p>
+            </div>
+            <div>
+              <p className="text-sm text-blue-600">Current Investments</p>
+              <p className="text-lg font-semibold text-blue-800">
+                ${optimizationResult.financial_summary.current_investments?.toLocaleString() || '0'}
+              </p>
+            </div>
+          </div>
+          {optimizationResult.financial_summary.savings_rate !== undefined && (
+            <div className="mt-4 pt-4 border-t border-blue-200">
+              <p className="text-sm text-blue-600">Current Savings Rate</p>
+              <p className="text-lg font-semibold text-blue-800">
+                {optimizationResult.financial_summary.savings_rate.toFixed(1)}%
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Recommendations Card */}
+      <div className="bg-white border border-gray-200 rounded-lg p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Tax Optimization Recommendations</h3>
+        <div className="space-y-3">
+          {optimizationResult.recommendations.map((rec: string, index: number) => (
+            <div key={index} className="flex items-start space-x-3">
+              <div className="flex-shrink-0 w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center">
+                <span className="text-blue-600 text-sm font-medium">{index + 1}</span>
+              </div>
+              <p className="text-gray-700">{rec}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Summary Card */}
+      <div className="bg-gray-50 border border-gray-200 rounded-lg p-6">
+        <h3 className="text-lg font-semibold text-gray-800 mb-2">How This Works</h3>
+        <p className="text-gray-700">
+          Your financial plan has been optimized using AI agents with secure token-based authentication. 
+          The recommendations above are based on your income, expenses, and current financial situation.
+          The estimated savings represent potential tax optimization opportunities and improved financial strategies.
+        </p>
+      </div>
     </div>
   );
 };
@@ -258,37 +445,32 @@ const FinancialPlanning: React.FC = () => {
 
       {planningResult && (
         <div className="space-y-6">
+          {/* Financial Results Section */}
           <div className="bg-white shadow sm:rounded-lg">
             <div className="px-4 py-5 sm:p-6">
-              <h3 className="text-lg leading-6 font-medium text-gray-900">
-                Response
+              <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
+                Your Financial Plan
               </h3>
-              <div className="mt-4 space-y-4">
-                <div>
-                  <h4 className="text-sm font-medium text-gray-500">Message</h4>
-                  <p className="text-sm text-gray-600">{planningResult.message}</p>
-                </div>
+              
+              {planningResult.optimization_result && (
+                <FinancialResultsView optimizationResult={planningResult.optimization_result} />
+              )}
+            </div>
+          </div>
 
-                {planningResult.optimization_result && (
-                  <div>
-                    <h4 className="text-sm font-medium text-gray-500">Optimization Results</h4>
-                    <div className="mt-2 bg-gray-50 p-4 rounded-md">
-                      <p className="text-sm text-gray-600">
-                        Estimated Savings: ${planningResult.optimization_result.estimated_savings}
-                      </p>
-                      <ul className="mt-2 list-disc pl-5 space-y-1">
-                        {planningResult.optimization_result.recommendations.map((rec, index) => (
-                          <li key={index} className="text-sm text-gray-600">{rec}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  </div>
-                )}
-
-                {planningResult.token_flow && (
-                  <TokenFlowView tokenFlow={planningResult.token_flow} />
-                )}
-              </div>
+          {/* Technical Details Section */}
+          <div className="bg-white shadow sm:rounded-lg">
+            <div className="px-4 py-5 sm:p-6">
+              <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
+                Technical Information
+              </h3>
+              <p className="text-sm text-gray-600 mb-4">
+                This section shows the secure token exchange flow that powers your financial plan generation.
+              </p>
+              
+              {planningResult.token_flow && (
+                <TokenFlowView tokenFlow={planningResult.token_flow} />
+              )}
             </div>
           </div>
         </div>

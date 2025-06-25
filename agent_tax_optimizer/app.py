@@ -192,12 +192,70 @@ async def optimize_tax(data: FinancialData, credentials: HTTPAuthorizationCreden
         
         # Calculate optimization results based on calculator results and financial data
         tax_result = calculator_result.get("tax_result", {})
-        estimated_savings = min(data.income * 0.1, 5000)  # Example: 10% of income up to $5000
-        recommendations = [
-            "Maximize 401(k) contributions",
-            "Consider tax-loss harvesting",
-            "Review itemized deductions"
-        ]
+        
+        # Calculate more sophisticated optimization results
+        income = data.income
+        expenses = data.expenses * 12  # Convert monthly to annual
+        savings = data.savings
+        investments = data.investments
+        
+        # Calculate current tax burden
+        effective_tax_rate = tax_result.get("effective_tax_rate", 0.27)
+        current_tax_burden = income * effective_tax_rate
+        
+        # Calculate potential savings through optimization
+        potential_savings = min(income * 0.15, 8000)  # Up to 15% of income, max $8000
+        
+        # Generate personalized recommendations based on financial data
+        recommendations = []
+        
+        if income > 50000:
+            recommendations.append("Maximize 401(k) contributions to reduce taxable income")
+        
+        if expenses > income * 0.7:
+            recommendations.append("Review discretionary spending to increase savings potential")
+        
+        if savings < income * 0.1:
+            recommendations.append("Build emergency fund with 3-6 months of expenses")
+        
+        if investments < income * 0.2:
+            recommendations.append("Consider increasing investment allocation for long-term growth")
+        
+        # Add tax-specific recommendations
+        if tax_result.get("deductions", {}).get("itemized_deductions", {}).get("mortgage_interest", 0) == 0:
+            recommendations.append("Consider itemizing deductions if you have significant mortgage interest")
+        
+        if income > 75000:
+            recommendations.append("Explore tax-advantaged accounts like HSA or 529 plans")
+        
+        # Ensure we have at least some basic recommendations
+        if not recommendations:
+            recommendations = [
+                "Maximize 401(k) contributions",
+                "Consider tax-loss harvesting",
+                "Review itemized deductions",
+                "Explore tax-advantaged investment accounts"
+            ]
+        
+        # Calculate additional metrics
+        monthly_savings_potential = potential_savings / 12
+        retirement_impact = potential_savings * 20  # 20 years of savings
+        
+        optimization_result = {
+            "estimated_savings": potential_savings,
+            "monthly_savings_potential": monthly_savings_potential,
+            "current_tax_burden": current_tax_burden,
+            "effective_tax_rate": effective_tax_rate,
+            "retirement_impact": retirement_impact,
+            "recommendations": recommendations,
+            "financial_summary": {
+                "annual_income": income,
+                "annual_expenses": expenses,
+                "current_savings": savings,
+                "current_investments": investments,
+                "savings_rate": ((income - expenses) / income) * 100 if income > 0 else 0
+            }
+        }
         
         # Return a response with token info and optimization results
         response = {
@@ -222,11 +280,7 @@ async def optimize_tax(data: FinancialData, credentials: HTTPAuthorizationCreden
             },
             "response": {
                 "message": "Tax optimization completed",
-                "optimization_result": {
-                    "estimated_savings": estimated_savings,
-                    "recommendations": recommendations,
-                    "calculator_result": tax_result
-                }
+                "optimization_result": optimization_result
             },
             "message": "Tax optimization completed"
         }
