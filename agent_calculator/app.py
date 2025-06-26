@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, Request, Response
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import jwt, JWTError
 import os
@@ -96,6 +96,8 @@ async def get_public_key() -> bytes:
 
 async def verify_token(token: str) -> dict:
     """Verify the JWT token with proper validation."""
+    unverified_token = None  # Initialize to None
+    
     try:
         # First try to decode without verification to help with debugging
         try:
@@ -109,6 +111,7 @@ async def verify_token(token: str) -> dict:
             
         except Exception as e:
             logger.error(f"Failed to decode token even without verification: {str(e)}")
+            # Don't raise here, continue to try verification
         
         # Get the public key
         public_key = await get_public_key()
@@ -116,7 +119,10 @@ async def verify_token(token: str) -> dict:
         # Log the expected issuer for debugging
         expected_issuer = f"{KEYCLOAK_URL}/realms/{REALM}"
         logger.info(f"Expected issuer: {expected_issuer}")
-        logger.info(f"Actual issuer from token: {unverified_token.get('iss')}")
+        
+        # Only log actual issuer if we successfully decoded the unverified token
+        if unverified_token:
+            logger.info(f"Actual issuer from token: {unverified_token.get('iss')}")
         
         # Now verify and decode the token
         decoded_token = jwt.decode(
@@ -171,8 +177,21 @@ class TaxCalculatorAgentExecutor(AgentExecutor):
             user_input = context.get_user_input()
             logger.info(f"User input: {user_input}")
             
-            # Perform tax calculation
-            calculation_result = self.calculator.calculate_tax()
+            # Get the authenticated token from the request context
+            # The token was verified by middleware and stored in request.state.user_token
+            # We need to access it through the context's underlying request
+            token_context = None
+            if hasattr(context, '_request') and hasattr(context._request, 'state'):
+                token_context = getattr(context._request.state, 'user_token', None)
+            
+            if token_context:
+                logger.info("Using authenticated token context for A2A tax calculation")
+                logger.info(f"Token context: {token_context}")
+            else:
+                logger.warning("No authenticated token context found for A2A request")
+            
+            # Perform tax calculation with token context if available
+            calculation_result = self.calculator.calculate_tax(context=token_context)
             
             # Analyze user input to provide relevant response
             user_input_lower = user_input.lower()
@@ -263,20 +282,149 @@ class TaxCalculatorAgentExecutor(AgentExecutor):
         logger.info(f"Task {task_id} cancellation completed (no-op for this agent)")
         return True
 
-@app.post("/api/calculate")
-async def calculate_tax(credentials: HTTPAuthorizationCredentials = Depends(security)):
-    """Calculate tax based on the received token."""
-    try:
-        # Get the token from the Authorization header
-        token = credentials.credentials
-        logger.info(f"Received token: {token[:20]}...")  # Log first 20 chars for security
+@app.middleware("http")
+async def auth_middleware(request: Request, call_next):
+    """
+    Middleware to verify JWT tokens for protected routes.
+    Handles authentication for both REST API and A2A endpoints.
+    """
+    # Skip authentication for documentation and favicon
+    if (request.url.path == "/docs" or 
+        request.url.path == "/openapi.json" or
+        request.url.path == "/favicon.ico"):
+        return await call_next(request)
+    
+    # Get the Authorization header
+    auth_header = request.headers.get("Authorization")
+    
+    # For A2A routes, we need to handle authentication differently
+    if request.url.path.startswith("/a2a"):
+        # Agent card endpoint should be accessible without authentication
+        if request.url.path == "/a2a/.well-known/agent.json":
+            return await call_next(request)
         
+        # All other A2A endpoints require authentication
+        if not auth_header:
+            logger.error("No Authorization header found for A2A request")
+            return Response(
+                status_code=401,
+                content=json.dumps({
+                    "error": "Authorization required for A2A endpoints",
+                    "detail": "Missing Authorization header"
+                }),
+                headers={
+                    "Content-Type": "application/json",
+                    "WWW-Authenticate": "Bearer realm=\"A2A Tax Calculator Agent\""
+                }
+            )
+        
+        if not auth_header.startswith("Bearer "):
+            logger.error("Invalid Authorization header format for A2A request")
+            return Response(
+                status_code=401,
+                content=json.dumps({
+                    "error": "Bearer token required for A2A endpoints",
+                    "detail": "Invalid Authorization header format"
+                }),
+                headers={
+                    "Content-Type": "application/json",
+                    "WWW-Authenticate": "Bearer realm=\"A2A Tax Calculator Agent\""
+                }
+            )
+        
+        token = auth_header[7:]  # Remove "Bearer " prefix
+        logger.info(f"Received A2A token: {token[:20]}...")  # Log first 20 chars for security
+        
+        try:
+            # Verify the token
+            decoded_token = await verify_token(token)
+            logger.info("Successfully verified A2A token in middleware")
+            
+            # Store the decoded token in request state for use in route handlers
+            request.state.user_token = decoded_token
+            
+            # Continue to the route handler
+            response = await call_next(request)
+            return response
+            
+        except HTTPException as e:
+            # Convert HTTPException to proper response for A2A
+            logger.error(f"Authentication failed for A2A request: {e.detail}")
+            return Response(
+                status_code=e.status_code,
+                content=json.dumps({
+                    "error": "Authentication failed",
+                    "detail": e.detail
+                }),
+                headers={
+                    "Content-Type": "application/json",
+                    "WWW-Authenticate": "Bearer realm=\"A2A Tax Calculator Agent\""
+                }
+            )
+        except Exception as e:
+            logger.error(f"Unexpected error in A2A auth middleware: {str(e)}")
+            return Response(
+                status_code=500,
+                content=json.dumps({
+                    "error": "Authentication error",
+                    "detail": str(e)
+                }),
+                headers={
+                    "Content-Type": "application/json",
+                    "WWW-Authenticate": "Bearer realm=\"A2A Tax Calculator Agent\""
+                }
+            )
+    
+    # For non-A2A routes (REST API)
+    if not auth_header:
+        logger.error("No Authorization header found")
+        raise HTTPException(
+            status_code=401, 
+            detail="Authorization header required",
+            headers={"WWW-Authenticate": "Bearer realm=\"Tax Calculator API\""}
+        )
+    
+    if not auth_header.startswith("Bearer "):
+        logger.error("Invalid Authorization header format")
+        raise HTTPException(
+            status_code=401, 
+            detail="Bearer token required",
+            headers={"WWW-Authenticate": "Bearer realm=\"Tax Calculator API\""}
+        )
+    
+    token = auth_header[7:]  # Remove "Bearer " prefix
+    logger.info(f"Received token: {token[:20]}...")  # Log first 20 chars for security
+    
+    try:
         # Verify the token
         decoded_token = await verify_token(token)
-        logger.info("Successfully verified token")
+        logger.info("Successfully verified token in middleware")
         
-        # Log the decoded token
-        logger.info("Agent Calculator received token:")
+        # Store the decoded token in request state for use in route handlers
+        request.state.user_token = decoded_token
+        
+        # Continue to the route handler
+        response = await call_next(request)
+        return response
+        
+    except HTTPException:
+        # Re-raise HTTP exceptions (like 401, 403)
+        raise
+    except Exception as e:
+        logger.error(f"Unexpected error in auth middleware: {str(e)}")
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Authentication error: {str(e)}",
+            headers={"WWW-Authenticate": "Bearer realm=\"Tax Calculator API\""}
+        )
+
+@app.post("/api/calculate")
+async def calculate_tax(request: Request):
+    """Calculate tax based on the verified token from middleware."""
+    try:
+        # Get the verified token from request state (set by middleware)
+        decoded_token = request.state.user_token
+        logger.info("Agent Calculator received verified token:")
         logger.info(f"Decoded token: {decoded_token}")
         
         # Use the tax calculator with the token context
@@ -294,7 +442,7 @@ async def calculate_tax(credentials: HTTPAuthorizationCredentials = Depends(secu
 def setup_a2a_server():
     """Set up the A2A server with proper FastAPI integration."""
     
-    # Create agent card
+    # Create agent card with authentication requirements
     agent_card = AgentCard(
         name="Tax Calculator Agent",
         description="Provides tax calculation information including rates, brackets, deductions, and credits",
@@ -307,6 +455,21 @@ def setup_a2a_server():
         },
         defaultInputModes=["text", "text/plain"],
         defaultOutputModes=["text", "text/plain"],
+        # Add security schemes (authentication requirements)
+        securitySchemes={
+            "Bearer": {
+                "type": "http",
+                "scheme": "bearer",
+                "bearerFormat": "JWT",
+                "description": "OAuth 2.0 JWT token with 'tax:calculate' scope required"
+            }
+        },
+        # Specify which security schemes are required and what scopes are needed
+        security=[
+            {
+                "Bearer": ["tax:calculate"]
+            }
+        ],
         skills=[{
             "id": "tax_calculation",
             "name": "Tax Calculation",
@@ -350,6 +513,7 @@ def setup_a2a_server():
     logger.info("A2A server properly integrated with FastAPI")
     logger.info("Agent card available at /a2a/.well-known/agent.json")
     logger.info("A2A RPC endpoint available at /a2a/")
+    logger.info("A2A authentication: Bearer JWT token with 'tax:calculate' scope required")
 
 
 # Set up A2A server
