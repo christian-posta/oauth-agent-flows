@@ -74,6 +74,118 @@ interface PlanningResult {
   };
 }
 
+const ServiceCallGraph: React.FC = () => {
+  return (
+    <div className="mb-6 p-6 bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200 rounded-lg">
+      <h4 className="text-lg font-semibold text-indigo-800 mb-4">Service Call Flow</h4>
+      <p className="text-sm text-indigo-600 mb-4">
+        This financial plan was generated through a secure chain of AI agents using OAuth2 token exchange:
+      </p>
+      
+      <div className="flex flex-col space-y-4">
+        {/* Step 1: User to Agent Planner */}
+        <div className="flex items-center">
+          <div className="flex-shrink-0 w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center border-2 border-blue-300">
+            <span className="text-blue-600 font-semibold text-sm">👤</span>
+          </div>
+          <div className="ml-4 flex-1">
+            <div className="flex items-center">
+              <div className="flex-1 h-0.5 bg-blue-300"></div>
+              <div className="mx-2 text-blue-500 text-xs">OAuth Token</div>
+              <div className="flex-1 h-0.5 bg-blue-300"></div>
+            </div>
+          </div>
+          <div className="flex-shrink-0 w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center border-2 border-blue-600">
+            <span className="text-white font-semibold text-sm">📋</span>
+          </div>
+          <div className="ml-3">
+            <p className="text-sm font-medium text-gray-900">Agent Planner</p>
+            <p className="text-xs text-gray-500">Receives user data & token</p>
+          </div>
+        </div>
+
+        {/* Step 2: Agent Planner to Tax Optimizer */}
+        <div className="flex items-center">
+          <div className="flex-shrink-0 w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center border-2 border-blue-600">
+            <span className="text-white font-semibold text-sm">📋</span>
+          </div>
+          <div className="ml-4 flex-1">
+            <div className="flex items-center">
+              <div className="flex-1 h-0.5 bg-green-300"></div>
+              <div className="mx-2 text-green-500 text-xs">Token Exchange</div>
+              <div className="flex-1 h-0.5 bg-green-300"></div>
+            </div>
+          </div>
+          <div className="flex-shrink-0 w-12 h-12 bg-green-500 rounded-full flex items-center justify-center border-2 border-green-600">
+            <span className="text-white font-semibold text-sm">💰</span>
+          </div>
+          <div className="ml-3">
+            <p className="text-sm font-medium text-gray-900">Tax Optimizer</p>
+            <p className="text-xs text-gray-500">Analyzes financial data</p>
+          </div>
+        </div>
+
+        {/* Step 3: Tax Optimizer to Calculator */}
+        <div className="flex items-center">
+          <div className="flex-shrink-0 w-12 h-12 bg-green-500 rounded-full flex items-center justify-center border-2 border-green-600">
+            <span className="text-white font-semibold text-sm">💰</span>
+          </div>
+          <div className="ml-4 flex-1">
+            <div className="flex items-center">
+              <div className="flex-1 h-0.5 bg-purple-300"></div>
+              <div className="mx-2 text-purple-500 text-xs">Token Exchange</div>
+              <div className="flex-1 h-0.5 bg-purple-300"></div>
+            </div>
+          </div>
+          <div className="flex-shrink-0 w-12 h-12 bg-purple-500 rounded-full flex items-center justify-center border-2 border-purple-600">
+            <span className="text-white font-semibold text-sm">🧮</span>
+          </div>
+          <div className="ml-3">
+            <p className="text-sm font-medium text-gray-900">Calculator</p>
+            <p className="text-xs text-gray-500">Performs tax calculations</p>
+          </div>
+        </div>
+
+        {/* Step 4: Results Flow Back */}
+        <div className="flex items-center">
+          <div className="flex-shrink-0 w-12 h-12 bg-purple-500 rounded-full flex items-center justify-center border-2 border-purple-600">
+            <span className="text-white font-semibold text-sm">🧮</span>
+          </div>
+          <div className="ml-4 flex-1">
+            <div className="flex items-center">
+              <div className="flex-1 h-0.5 bg-orange-300"></div>
+              <div className="mx-2 text-orange-500 text-xs">Results</div>
+              <div className="flex-1 h-0.5 bg-orange-300"></div>
+            </div>
+          </div>
+          <div className="flex-shrink-0 w-12 h-12 bg-orange-500 rounded-full flex items-center justify-center border-2 border-orange-600">
+            <span className="text-white font-semibold text-sm">📊</span>
+          </div>
+          <div className="ml-3">
+            <p className="text-sm font-medium text-gray-900">Financial Plan</p>
+            <p className="text-xs text-gray-500">Optimized recommendations</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-4 p-3 bg-white rounded-md border border-indigo-200">
+        <div className="flex items-start space-x-3">
+          <div className="flex-shrink-0 w-6 h-6 bg-indigo-100 rounded-full flex items-center justify-center">
+            <span className="text-indigo-600 text-sm">🔒</span>
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-900">Secure Token Exchange</p>
+            <p className="text-xs text-gray-600">
+              Each service exchange uses OAuth2 token exchange to maintain security and proper authorization. 
+              No service can access another without proper token delegation.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const TokenFlowView: React.FC<{ tokenFlow: TokenFlow }> = ({ tokenFlow }) => {
   const [expanded, setExpanded] = useState(false);
 
@@ -88,6 +200,9 @@ const TokenFlowView: React.FC<{ tokenFlow: TokenFlow }> = ({ tokenFlow }) => {
       
       {expanded && (
         <div className="mt-4 space-y-6">
+          {/* Service Call Graph */}
+          <ServiceCallGraph />
+          
           {/* User App Section */}
           <div className="border border-gray-200 rounded-lg p-4">
             <h4 className="text-lg font-semibold text-gray-800 mb-3">1. User Application</h4>
@@ -439,10 +554,10 @@ const FinancialResultsView: React.FC<{ optimizationResult: any }> = ({ optimizat
 
 const FinancialPlanning: React.FC = () => {
   const [financialData, setFinancialData] = useState<FinancialData>({
-    income: 0,
-    expenses: 0,
-    savings: 0,
-    investments: 0,
+    income: 75000,        // Annual income - matches backend fallback
+    expenses: 3750,       // Monthly expenses (45000/12) - matches backend fallback
+    savings: 15000,       // Current savings - matches backend fallback
+    investments: 25000,   // Current investments - matches backend fallback
   });
 
   const { data: planningResult, refetch: refetchPlanning } = useQuery<PlanningResult>(
@@ -486,6 +601,13 @@ const FinancialPlanning: React.FC = () => {
           </h3>
           
           <form onSubmit={handleSubmit} className="mt-5 space-y-4">
+            <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <p className="text-sm text-blue-700">
+                💡 These are sample financial values to demonstrate the planning tool. 
+                Feel free to modify them to match your actual financial situation.
+              </p>
+            </div>
+            
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <label htmlFor="income" className="block text-sm font-medium text-gray-700">
@@ -497,8 +619,10 @@ const FinancialPlanning: React.FC = () => {
                   id="income"
                   value={financialData.income}
                   onChange={handleInputChange}
+                  placeholder="e.g., 75000"
                   className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                 />
+                <p className="mt-1 text-xs text-gray-500">Your total annual income before taxes</p>
               </div>
 
               <div>
@@ -511,8 +635,10 @@ const FinancialPlanning: React.FC = () => {
                   id="expenses"
                   value={financialData.expenses}
                   onChange={handleInputChange}
+                  placeholder="e.g., 3750"
                   className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                 />
+                <p className="mt-1 text-xs text-gray-500">Your total monthly living expenses</p>
               </div>
 
               <div>
@@ -525,8 +651,10 @@ const FinancialPlanning: React.FC = () => {
                   id="savings"
                   value={financialData.savings}
                   onChange={handleInputChange}
+                  placeholder="e.g., 15000"
                   className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                 />
+                <p className="mt-1 text-xs text-gray-500">Your current savings and emergency fund</p>
               </div>
 
               <div>
@@ -539,8 +667,10 @@ const FinancialPlanning: React.FC = () => {
                   id="investments"
                   value={financialData.investments}
                   onChange={handleInputChange}
+                  placeholder="e.g., 25000"
                   className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                 />
+                <p className="mt-1 text-xs text-gray-500">Your current investment portfolio value</p>
               </div>
             </div>
 
