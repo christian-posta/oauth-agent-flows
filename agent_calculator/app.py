@@ -16,7 +16,7 @@ import uuid
 
 # A2A imports
 from a2a.server.agent_execution import AgentExecutor
-from a2a.server.apps import A2AStarletteApplication
+from a2a.server.apps import A2AFastAPIApplication
 from a2a.server.request_handlers import DefaultRequestHandler
 from a2a.server.tasks import InMemoryTaskStore
 from a2a.types import AgentCard, Message, TextPart
@@ -329,23 +329,23 @@ def setup_a2a_server():
         task_store=task_store,
     )
     
-    # Create A2A JSON-RPC app
-    a2a_app = A2AStarletteApplication(
+    # Create A2A FastAPI app and integrate with existing app
+    a2a_app = A2AFastAPIApplication(
         agent_card=agent_card,
         http_handler=request_handler
     )
     
-    # Get the Starlette app from A2A
-    starlette_app = a2a_app.build()
+    # Get the FastAPI app from A2A and merge routes
+    a2a_fastapi_app = a2a_app.build()
+    
+    # Add A2A routes to our existing FastAPI app
+    app.include_router(a2a_fastapi_app.router, prefix="/a2a")
     
     # Add agent card endpoint
     @app.get("/a2a/.well-known/agent.json")
     async def get_agent_card():
         """Return the agent card for A2A discovery."""
         return agent_card.model_dump()
-    
-    # Mount the A2A JSON-RPC endpoints
-    app.mount("/a2a", starlette_app)
     
     logger.info("A2A server properly integrated with FastAPI")
     logger.info("Agent card available at /a2a/.well-known/agent.json")
