@@ -30,7 +30,9 @@ python setup_keycloak.py --config config.json --url http://localhost:8081 --debu
 
 ```
 
-> Note: this sets up everything except enabling token exchange on the agent-planner client; you MUST do this in the UI
+> Note: this sets up everything except enabling token exchange on the agent-planner and agent-tax-optimizer
+> client; you MUST do this in the UI. Go to each client, scroll down to the Capabilities section and select the
+> "Standard Token Exchange" box
 
 
 After setting up, you can run the test token exchange script which will guide you through:
