@@ -13,6 +13,7 @@ from cryptography.hazmat.primitives import serialization
 import base64
 import asyncio
 import uuid
+from contextlib import AsyncExitStack
 
 # A2A imports
 from a2a.server.agent_execution import AgentExecutor
@@ -23,8 +24,11 @@ from a2a.types import AgentCard, Message, TextPart, SecurityScheme, HTTPAuthSecu
 from a2a.server.agent_execution.context import RequestContext
 from a2a.server.events.event_queue import EventQueue
 
-# Local imports
-from calculator import TaxCalculator
+# MCP imports - fixed to use correct import structure
+from mcp import ClientSession, StdioServerParameters, stdio_client, CallToolRequest
+
+# Local imports - remove the direct calculator import
+# from calculator import TaxCalculator
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -36,8 +40,88 @@ load_dotenv()
 app = FastAPI(title="Agent Calculator Service")
 security = HTTPBearer()
 
-# Initialize the tax calculator
-tax_calculator = TaxCalculator()
+# MCP Tax Calculator Client
+class MCPTaxCalculator:
+    def __init__(self, server_path: str):
+        self.server_path = server_path
+        self.server_params = StdioServerParameters(
+            command="python",
+            args=[server_path],
+            env={}
+        )
+    
+    async def calculate_tax(self, context=None):
+        logger.info(f"Calculating tax via MCP server: {self.server_path}")
+        
+        async with AsyncExitStack() as exit_stack:
+            stdio_transport = await exit_stack.enter_async_context(stdio_client(self.server_params))
+            read_stream, write_stream = stdio_transport
+            session = await exit_stack.enter_async_context(ClientSession(read_stream, write_stream))
+            await session.initialize()
+            result = await session.call_tool(
+                name="calculate_tax",
+                arguments={"context": context} if context else {}
+            )
+            return result
+    
+    async def get_tax_brackets(self):
+        logger.info(f"Getting tax brackets via MCP server: {self.server_path}")
+        
+        async with AsyncExitStack() as exit_stack:
+            stdio_transport = await exit_stack.enter_async_context(stdio_client(self.server_params))
+            read_stream, write_stream = stdio_transport
+            session = await exit_stack.enter_async_context(ClientSession(read_stream, write_stream))
+            await session.initialize()
+            result = await session.call_tool(
+                name="get_tax_brackets",
+                arguments={}
+            )
+            return result
+    
+    async def get_tax_rates(self):
+        logger.info(f"Getting tax rates via MCP server: {self.server_path}")
+        
+        async with AsyncExitStack() as exit_stack:
+            stdio_transport = await exit_stack.enter_async_context(stdio_client(self.server_params))
+            read_stream, write_stream = stdio_transport
+            session = await exit_stack.enter_async_context(ClientSession(read_stream, write_stream))
+            await session.initialize()
+            result = await session.call_tool(
+                name="get_tax_rates",
+                arguments={}
+            )
+            return result
+    
+    async def get_deductions(self):
+        logger.info(f"Getting deductions via MCP server: {self.server_path}")
+        
+        async with AsyncExitStack() as exit_stack:
+            stdio_transport = await exit_stack.enter_async_context(stdio_client(self.server_params))
+            read_stream, write_stream = stdio_transport
+            session = await exit_stack.enter_async_context(ClientSession(read_stream, write_stream))
+            await session.initialize()
+            result = await session.call_tool(
+                name="get_deductions",
+                arguments={}
+            )
+            return result
+    
+    async def get_credits(self):
+        logger.info(f"Getting credits via MCP server: {self.server_path}")
+        
+        async with AsyncExitStack() as exit_stack:
+            stdio_transport = await exit_stack.enter_async_context(stdio_client(self.server_params))
+            read_stream, write_stream = stdio_transport
+            session = await exit_stack.enter_async_context(ClientSession(read_stream, write_stream))
+            await session.initialize()
+            result = await session.call_tool(
+                name="get_credits",
+                arguments={}
+            )
+            return result
+
+# Initialize the MCP tax calculator client
+tax_calculator = MCPTaxCalculator("./mcp_tax_calculator_server.py")
 
 # Configuration
 KEYCLOAK_URL = os.getenv("KEYCLOAK_URL")
@@ -156,7 +240,7 @@ async def verify_token(token: str) -> dict:
 class TaxCalculatorAgentExecutor(AgentExecutor):
     """A2A Agent Executor for the Tax Calculator service."""
     
-    def __init__(self, calculator: TaxCalculator):
+    def __init__(self, calculator: MCPTaxCalculator):
         """Initialize with a tax calculator instance."""
         self.calculator = calculator
         super().__init__()
@@ -190,25 +274,30 @@ class TaxCalculatorAgentExecutor(AgentExecutor):
             else:
                 logger.warning("No authenticated token context found for A2A request")
             
-            # Perform tax calculation with token context if available
-            calculation_result = self.calculator.calculate_tax(context=token_context)
+            # Perform tax calculation with token context if available - now async
+            calculation_result = await self.calculator.calculate_tax(context=token_context)
+            # Extract actual data from CallToolResult
+            if calculation_result.content and hasattr(calculation_result.content[0], 'text'):
+                calculation_data = json.loads(calculation_result.content[0].text)
+            else:
+                calculation_data = {}
             
             # Analyze user input to provide relevant response
             user_input_lower = user_input.lower()
             
             if "structured" in user_input_lower or "json" in user_input_lower or "machine readable" in user_input_lower:
                 # Return structured JSON data instead of formatted text
-                response_text = json.dumps(calculation_result['tax_result'], indent=2)
+                response_text = json.dumps(calculation_data.get('tax_result', {}), indent=2)
 
             elif "rate" in user_input_lower or "percentage" in user_input_lower:
                 response_text = f"Current Tax Rates:\n"
-                response_text += f"• Federal Tax Rate: {calculation_result['tax_result']['federal_tax_rate']:.1%}\n"
-                response_text += f"• State Tax Rate: {calculation_result['tax_result']['state_tax_rate']:.1%}\n"
-                response_text += f"• Effective Tax Rate: {calculation_result['tax_result']['effective_tax_rate']:.1%}\n"
+                response_text += f"• Federal Tax Rate: {calculation_data['tax_result']['federal_tax_rate']:.1%}\n"
+                response_text += f"• State Tax Rate: {calculation_data['tax_result']['state_tax_rate']:.1%}\n"
+                response_text += f"• Effective Tax Rate: {calculation_data['tax_result']['effective_tax_rate']:.1%}\n"
                 
             elif "bracket" in user_input_lower:
                 response_text = "Current Tax Brackets:\n"
-                for bracket in calculation_result['tax_result']['tax_brackets']:
+                for bracket in calculation_data['tax_result']['tax_brackets']:
                     if bracket['max'] is None:
                         response_text += f"• ${bracket['min']:,}+: {bracket['rate']:.1%}\n"
                     else:
@@ -216,26 +305,26 @@ class TaxCalculatorAgentExecutor(AgentExecutor):
                         
             elif "deduction" in user_input_lower:
                 response_text = "Available Deductions:\n"
-                response_text += f"• Standard Deduction: ${calculation_result['tax_result']['deductions']['standard_deduction']:,}\n"
+                response_text += f"• Standard Deduction: ${calculation_data['tax_result']['deductions']['standard_deduction']:,}\n"
                 response_text += f"• Itemized Deductions Available: Mortgage Interest, Property Tax, Charitable Contributions\n"
                 
             elif "credit" in user_input_lower:
                 response_text = "Available Tax Credits:\n"
-                response_text += f"• Child Tax Credit: ${calculation_result['tax_result']['credits']['child_tax_credit']:,}\n"
+                response_text += f"• Child Tax Credit: ${calculation_data['tax_result']['credits']['child_tax_credit']:,}\n"
                 response_text += f"• Earned Income Credit: Available based on income level\n"
                 
             else:
                 # Default comprehensive response
-                response_text = f"{calculation_result['message']}\n\nTax Calculation Summary:\n"
-                response_text += f"• Federal Tax Rate: {calculation_result['tax_result']['federal_tax_rate']:.1%}\n"
-                response_text += f"• State Tax Rate: {calculation_result['tax_result']['state_tax_rate']:.1%}\n"
-                response_text += f"• Effective Tax Rate: {calculation_result['tax_result']['effective_tax_rate']:.1%}\n"
-                response_text += f"• Standard Deduction: ${calculation_result['tax_result']['deductions']['standard_deduction']:,}\n"
-                response_text += f"• Child Tax Credit: ${calculation_result['tax_result']['credits']['child_tax_credit']:,}\n"
+                response_text = f"{calculation_data.get('message', '')}\n\nTax Calculation Summary:\n"
+                response_text += f"• Federal Tax Rate: {calculation_data['tax_result']['federal_tax_rate']:.1%}\n"
+                response_text += f"• State Tax Rate: {calculation_data['tax_result']['state_tax_rate']:.1%}\n"
+                response_text += f"• Effective Tax Rate: {calculation_data['tax_result']['effective_tax_rate']:.1%}\n"
+                response_text += f"• Standard Deduction: ${calculation_data['tax_result']['deductions']['standard_deduction']:,}\n"
+                response_text += f"• Child Tax Credit: ${calculation_data['tax_result']['credits']['child_tax_credit']:,}\n"
                 
                 # Add tax brackets info
                 response_text += "\nTax Brackets:\n"
-                for bracket in calculation_result['tax_result']['tax_brackets']:
+                for bracket in calculation_data['tax_result']['tax_brackets']:
                     if bracket['max'] is None:
                         response_text += f"• ${bracket['min']:,}+: {bracket['rate']:.1%}\n"
                     else:
@@ -427,11 +516,16 @@ async def calculate_tax(request: Request):
         logger.info("Agent Calculator received verified token:")
         logger.info(f"Decoded token: {decoded_token}")
         
-        # Use the tax calculator with the token context
-        response = tax_calculator.calculate_tax(context=decoded_token)
+        # Use the MCP tax calculator with the token context - now async
+        response = await tax_calculator.calculate_tax(context=decoded_token)
+        # Extract actual data from CallToolResult
+        if response.content and hasattr(response.content[0], 'text'):
+            data = json.loads(response.content[0].text)
+        else:
+            data = {}
         logger.info("Sending response:")
-        logger.info(f"Response data: {response}")
-        return response
+        logger.info(f"Response data: {data}")
+        return data
         
     except Exception as e:
         logger.error(f"Error in calculate_tax: {str(e)}")
@@ -488,7 +582,7 @@ def setup_a2a_server():
     
     # Create A2A components
     task_store = InMemoryTaskStore()
-    agent_executor = TaxCalculatorAgentExecutor(tax_calculator)
+    agent_executor = TaxCalculatorAgentExecutor(tax_calculator)  # Using MCP calculator
     request_handler = DefaultRequestHandler(
         agent_executor=agent_executor,
         task_store=task_store,
@@ -516,6 +610,7 @@ def setup_a2a_server():
     logger.info("Agent card available at /a2a/.well-known/agent.json")
     logger.info("A2A RPC endpoint available at /a2a/")
     logger.info("A2A authentication: Bearer JWT token with 'tax:calculate' scope required")
+    logger.info("Using MCP Tax Calculator Server for calculations")
 
 
 # Set up A2A server

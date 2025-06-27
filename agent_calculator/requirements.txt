@@ -4,4 +4,5 @@ python-jose==3.3.0
 python-dotenv==1.0.0
 httpx>=0.28.1
 cryptography>=41.0.5
-a2a-sdk[fastapi]>=0.2.6 
+a2a-sdk[fastapi]>=0.2.6
+mcp>=1.10.1 
