@@ -30,6 +30,13 @@ AGENT_CALCULATOR_CLIENT_ID = "agent-calculator"
 TEST_USERNAME = "testuser"
 TEST_PASSWORD = "password123"
 
+def get_user_input(prompt: str, default: str = "Y") -> bool:
+    """Get user input with a default value."""
+    response = input(f"{prompt} (Y/n): ").strip().upper()
+    if not response:
+        response = default
+    return response in ["Y", "YES"]
+
 def decode_jwt_payload(token: str) -> dict:
     """Decode JWT payload without verification for debugging."""
     try:
@@ -77,10 +84,14 @@ async def get_agent_calculator_token():
     """Programmatically get a token for the agent-calculator client using the full token exchange chain."""
     print("🔑 Getting agent-calculator token via full token exchange chain...")
     
+    # Ask if user wants to see detailed token exchange
+    show_detailed_exchange = get_user_input("Show detailed token exchange steps?", "N")
+    
     async with httpx.AsyncClient(timeout=TIMEOUT) as client:
         try:
             # Step 1: Get user token
-            print("   📝 Step 1: Getting user token...")
+            if show_detailed_exchange:
+                print("   📝 Step 1: Getting user token...")
             user_token_response = await client.post(
                 f"{KEYCLOAK_URL}/realms/{REALM_NAME}/protocol/openid-connect/token",
                 data={
@@ -105,11 +116,15 @@ async def get_agent_calculator_token():
                 print("   ❌ No access token in user token response")
                 return None
             
-            print("   ✅ User token obtained")
-            print_token_debug(user_token, "User Token")
+            if show_detailed_exchange:
+                print("   ✅ User token obtained")
+                print_token_debug(user_token, "User Token")
+            else:
+                print("   ✅ User token obtained")
             
             # Step 2: Get agent-planner client secret
-            print("   🔐 Step 2: Getting agent-planner client secret...")
+            if show_detailed_exchange:
+                print("   🔐 Step 2: Getting agent-planner client secret...")
             
             # Try to get admin token to retrieve client secret
             admin_token_response = await client.post(
@@ -150,18 +165,21 @@ async def get_agent_calculator_token():
                             if secret_response.status_code == 200:
                                 secret_data = secret_response.json()
                                 agent_planner_secret = secret_data.get("value")
-                                print("   ✅ Agent planner client secret retrieved automatically")
+                                if show_detailed_exchange:
+                                    print("   ✅ Agent planner client secret retrieved automatically")
             
             # Fallback to hardcoded secret from config.json
             if not agent_planner_secret:
                 agent_planner_secret = "17yYAxRtRamaYeHtgFEJJEzyeXcdlszD"
-                print("   ⚠️  Using hardcoded agent planner client secret (from config.json)")
+                if show_detailed_exchange:
+                    print("   ⚠️  Using hardcoded agent planner client secret (from config.json)")
             
             # Step 3: Exchange user token for agent-tax-optimizer token
-            print("   🔄 Step 3: Exchanging user token for agent-tax-optimizer token...")
-            print(f"      Requester client: agent-planner")
-            print(f"      Target audience: agent-tax-optimizer")
-            print(f"      Requested scope: tax:process")
+            if show_detailed_exchange:
+                print("   🔄 Step 3: Exchanging user token for agent-tax-optimizer token...")
+                print(f"      Requester client: agent-planner")
+                print(f"      Target audience: agent-tax-optimizer")
+                print(f"      Requested scope: tax:process")
             
             tax_optimizer_exchange_response = await client.post(
                 f"{KEYCLOAK_URL}/realms/{REALM_NAME}/protocol/openid-connect/token",
@@ -178,7 +196,8 @@ async def get_agent_calculator_token():
                 headers={"Content-Type": "application/x-www-form-urlencoded"}
             )
             
-            print(f"      Tax optimizer exchange response status: {tax_optimizer_exchange_response.status_code}")
+            if show_detailed_exchange:
+                print(f"      Tax optimizer exchange response status: {tax_optimizer_exchange_response.status_code}")
             
             if tax_optimizer_exchange_response.status_code != 200:
                 print(f"   ❌ Tax optimizer token exchange failed: {tax_optimizer_exchange_response.status_code}")
@@ -193,11 +212,15 @@ async def get_agent_calculator_token():
                 print(f"   Response: {tax_optimizer_token_data}")
                 return None
             
-            print("   ✅ Tax optimizer token obtained")
-            print_token_debug(tax_optimizer_token, "Tax Optimizer Token")
+            if show_detailed_exchange:
+                print("   ✅ Tax optimizer token obtained")
+                print_token_debug(tax_optimizer_token, "Tax Optimizer Token")
+            else:
+                print("   ✅ Tax optimizer token obtained")
             
             # Step 4: Get agent-tax-optimizer client secret
-            print("   🔐 Step 4: Getting agent-tax-optimizer client secret...")
+            if show_detailed_exchange:
+                print("   🔐 Step 4: Getting agent-tax-optimizer client secret...")
             
             agent_tax_optimizer_secret = None
             
@@ -222,18 +245,21 @@ async def get_agent_calculator_token():
                         if secret_response.status_code == 200:
                             secret_data = secret_response.json()
                             agent_tax_optimizer_secret = secret_data.get("value")
-                            print("   ✅ Agent tax optimizer client secret retrieved automatically")
+                            if show_detailed_exchange:
+                                print("   ✅ Agent tax optimizer client secret retrieved automatically")
             
             # Fallback to hardcoded secret from config.json
             if not agent_tax_optimizer_secret:
                 agent_tax_optimizer_secret = "PLOs4j6ti521kb5ZVVVwi5GWi9eDYTwq"
-                print("   ⚠️  Using hardcoded agent tax optimizer client secret (from config.json)")
+                if show_detailed_exchange:
+                    print("   ⚠️  Using hardcoded agent tax optimizer client secret (from config.json)")
             
             # Step 5: Exchange tax optimizer token for agent-calculator token
-            print("   🔄 Step 5: Exchanging tax optimizer token for agent-calculator token...")
-            print(f"      Requester client: {AGENT_TAX_OPTIMIZER_CLIENT_ID}")
-            print(f"      Target audience: {AGENT_CALCULATOR_CLIENT_ID}")
-            print(f"      Requested scope: tax:calculate")
+            if show_detailed_exchange:
+                print("   🔄 Step 5: Exchanging tax optimizer token for agent-calculator token...")
+                print(f"      Requester client: {AGENT_TAX_OPTIMIZER_CLIENT_ID}")
+                print(f"      Target audience: {AGENT_CALCULATOR_CLIENT_ID}")
+                print(f"      Requested scope: tax:calculate")
             
             calculator_exchange_response = await client.post(
                 f"{KEYCLOAK_URL}/realms/{REALM_NAME}/protocol/openid-connect/token",
@@ -250,7 +276,8 @@ async def get_agent_calculator_token():
                 headers={"Content-Type": "application/x-www-form-urlencoded"}
             )
             
-            print(f"      Calculator exchange response status: {calculator_exchange_response.status_code}")
+            if show_detailed_exchange:
+                print(f"      Calculator exchange response status: {calculator_exchange_response.status_code}")
             
             if calculator_exchange_response.status_code == 200:
                 calculator_token_data = calculator_exchange_response.json()
@@ -258,7 +285,13 @@ async def get_agent_calculator_token():
                 
                 if calculator_token:
                     print("   ✅ Agent calculator token obtained!")
-                    print_token_debug(calculator_token, "Agent Calculator Token")
+                    if show_detailed_exchange:
+                        print_token_debug(calculator_token, "Agent Calculator Token")
+                    else:
+                        # Show just the final token details
+                        payload = decode_jwt_payload(calculator_token)
+                        if "error" not in payload:
+                            print(f"   🔐 Final token - Audience: {payload.get('aud', 'N/A')}, Scope: {payload.get('scope', 'N/A')}")
                     return calculator_token
                 else:
                     print("   ❌ No access token in calculator exchange response")
@@ -269,7 +302,8 @@ async def get_agent_calculator_token():
                 print(f"   Response: {calculator_exchange_response.text}")
                 
                 # Try without scope as fallback
-                print("   🔄 Trying calculator token exchange without scope...")
+                if show_detailed_exchange:
+                    print("   🔄 Trying calculator token exchange without scope...")
                 calculator_exchange_no_scope_response = await client.post(
                     f"{KEYCLOAK_URL}/realms/{REALM_NAME}/protocol/openid-connect/token",
                     data={
@@ -284,7 +318,8 @@ async def get_agent_calculator_token():
                     headers={"Content-Type": "application/x-www-form-urlencoded"}
                 )
                 
-                print(f"      No-scope calculator exchange response status: {calculator_exchange_no_scope_response.status_code}")
+                if show_detailed_exchange:
+                    print(f"      No-scope calculator exchange response status: {calculator_exchange_no_scope_response.status_code}")
                 
                 if calculator_exchange_no_scope_response.status_code == 200:
                     calculator_token_data = calculator_exchange_no_scope_response.json()
@@ -292,7 +327,13 @@ async def get_agent_calculator_token():
                     
                     if calculator_token:
                         print("   ✅ Agent calculator token obtained (without scope)!")
-                        print_token_debug(calculator_token, "Agent Calculator Token (No Scope)")
+                        if show_detailed_exchange:
+                            print_token_debug(calculator_token, "Agent Calculator Token (No Scope)")
+                        else:
+                            # Show just the final token details
+                            payload = decode_jwt_payload(calculator_token)
+                            if "error" not in payload:
+                                print(f"   🔐 Final token - Audience: {payload.get('aud', 'N/A')}, Scope: {payload.get('scope', 'N/A')}")
                         return calculator_token
                     else:
                         print("   ❌ No access token in no-scope calculator exchange response")
@@ -316,6 +357,20 @@ async def get_agent_calculator_token():
 
 async def test_agent_card_access():
     """Test that agent card is accessible without authentication."""
+    print("\n" + "="*60)
+    print("🔍 TEST 1: Agent Card Access (No Authentication Required)")
+    print("="*60)
+    print("This test verifies that the agent's metadata is publicly accessible.")
+    print("The agent card contains information about the agent's capabilities,")
+    print("security schemes, and how to interact with it.")
+    print()
+    print("Expected result: ✅ 200 OK with agent metadata")
+    print()
+    
+    if not get_user_input("Continue with agent card access test?"):
+        print("⏭️  Skipping agent card access test")
+        return True
+    
     print("🔍 Testing agent card access (should work without auth)...")
     
     async with httpx.AsyncClient(timeout=TIMEOUT) as client:
@@ -329,24 +384,30 @@ async def test_agent_card_access():
                 print(f"   📋 Agent name: {agent_card.get('name')}")
                 print(f"   🔐 Security schemes: {list(agent_card.get('securitySchemes', {}).keys())}")
                 
+                # Pretty print the full agent card
+                print("\n   📄 Full Agent Card:")
+                print("   " + "="*50)
+                print(json.dumps(agent_card, indent=4))
+                print("   " + "="*50)
+                
                 # Check if security schemes are properly defined
                 security_schemes = agent_card.get('securitySchemes', {})
                 if security_schemes:
-                    print("   ✅ Security schemes found in agent card")
+                    print("\n   ✅ Security schemes found in agent card")
                     for scheme_name, scheme_details in security_schemes.items():
                         print(f"      - {scheme_name}: {scheme_details.get('type')} {scheme_details.get('scheme')}")
                 else:
-                    print("   ⚠️  No security schemes found in agent card")
+                    print("\n   ⚠️  No security schemes found in agent card")
                 
                 # Check if security requirements are defined
                 security_requirements = agent_card.get('security', [])
                 if security_requirements:
-                    print("   ✅ Security requirements found in agent card")
+                    print("\n   ✅ Security requirements found in agent card")
                     for req in security_requirements:
                         for scheme_name, scopes in req.items():
                             print(f"      - {scheme_name} requires scopes: {scopes}")
                 else:
-                    print("   ⚠️  No security requirements found in agent card")
+                    print("\n   ⚠️  No security requirements found in agent card")
                 
                 return True
             else:
@@ -367,7 +428,20 @@ async def test_agent_card_access():
 
 async def test_a2a_without_auth():
     """Test A2A endpoints without authentication (should return 401)."""
-    print("\n🔍 Testing A2A endpoints without authentication (should return 401)...")
+    print("\n" + "="*60)
+    print("🔍 TEST 2: A2A Endpoints Without Authentication")
+    print("="*60)
+    print("This test verifies that the agent properly rejects requests")
+    print("that don't include authentication credentials.")
+    print()
+    print("Expected result: ❌ 401 Unauthorized with WWW-Authenticate header")
+    print()
+    
+    if not get_user_input("Continue with A2A without auth test?"):
+        print("⏭️  Skipping A2A without auth test")
+        return True
+    
+    print("🔍 Testing A2A endpoints without authentication (should return 401)...")
     
     async with httpx.AsyncClient(timeout=TIMEOUT) as client:
         try:
@@ -385,8 +459,13 @@ async def test_a2a_without_auth():
                 }
             }
             
+            print(f"\n   📤 Request Payload:")
+            print("   " + "="*40)
+            print(json.dumps(payload, indent=4))
+            print("   " + "="*40)
+            
             response = await client.post(f"{BASE_URL}/a2a/", json=payload)
-            print(f"   Status: {response.status_code}")
+            print(f"\n   📥 Response Status: {response.status_code}")
             
             if response.status_code == 401:
                 print("   ✅ Correctly returned 401 for missing authentication")
@@ -399,11 +478,20 @@ async def test_a2a_without_auth():
                     print("   ⚠️  WWW-Authenticate header missing")
                 
                 # Check response body
+                print(f"\n   📄 Response Headers:")
+                print("   " + "="*40)
+                for header, value in response.headers.items():
+                    print(f"      {header}: {value}")
+                print("   " + "="*40)
+                
+                print(f"\n   📄 Response Body:")
+                print("   " + "="*40)
                 try:
                     error_response = response.json()
-                    print(f"   📄 Error response: {json.dumps(error_response, indent=2)}")
+                    print(json.dumps(error_response, indent=4))
                 except:
-                    print(f"   📄 Response text: {response.text}")
+                    print(response.text)
+                print("   " + "="*40)
                 
                 return True
             else:
@@ -423,7 +511,20 @@ async def test_a2a_without_auth():
 
 async def test_a2a_with_invalid_auth():
     """Test A2A endpoints with invalid authentication (should return 401)."""
-    print("\n🔍 Testing A2A endpoints with invalid authentication (should return 401)...")
+    print("\n" + "="*60)
+    print("🔍 TEST 3: A2A Endpoints With Invalid Authentication")
+    print("="*60)
+    print("This test verifies that the agent properly rejects requests")
+    print("with invalid or malformed authentication tokens.")
+    print()
+    print("Expected result: ❌ 401 Unauthorized with WWW-Authenticate header")
+    print()
+    
+    if not get_user_input("Continue with A2A invalid auth test?"):
+        print("⏭️  Skipping A2A invalid auth test")
+        return True
+    
+    print("🔍 Testing A2A endpoints with invalid authentication (should return 401)...")
     
     async with httpx.AsyncClient(timeout=TIMEOUT) as client:
         try:
@@ -443,8 +544,19 @@ async def test_a2a_with_invalid_auth():
                 }
             }
             
+            print(f"\n   📤 Request Headers:")
+            print("   " + "="*40)
+            for header, value in headers.items():
+                print(f"      {header}: {value}")
+            print("   " + "="*40)
+            
+            print(f"\n   📤 Request Payload:")
+            print("   " + "="*40)
+            print(json.dumps(payload, indent=4))
+            print("   " + "="*40)
+            
             response = await client.post(f"{BASE_URL}/a2a/", json=payload, headers=headers)
-            print(f"   Status: {response.status_code}")
+            print(f"\n   📥 Response Status: {response.status_code}")
             
             if response.status_code == 401:
                 print("   ✅ Correctly returned 401 for invalid authentication")
@@ -455,6 +567,22 @@ async def test_a2a_with_invalid_auth():
                     print(f"   ✅ WWW-Authenticate header present: {www_auth}")
                 else:
                     print("   ⚠️  WWW-Authenticate header missing")
+                
+                # Check response body
+                print(f"\n   📄 Response Headers:")
+                print("   " + "="*40)
+                for header, value in response.headers.items():
+                    print(f"      {header}: {value}")
+                print("   " + "="*40)
+                
+                print(f"\n   📄 Response Body:")
+                print("   " + "="*40)
+                try:
+                    error_response = response.json()
+                    print(json.dumps(error_response, indent=4))
+                except:
+                    print(response.text)
+                print("   " + "="*40)
                 
                 return True
             else:
@@ -474,7 +602,25 @@ async def test_a2a_with_invalid_auth():
 
 async def test_a2a_with_valid_auth():
     """Test A2A endpoints with valid authentication (should work)."""
-    print("\n🔍 Testing A2A endpoints with valid authentication (should work)...")
+    print("\n" + "="*60)
+    print("🔍 TEST 4: A2A Endpoints With Valid Authentication")
+    print("="*60)
+    print("This test verifies that the agent accepts requests with valid")
+    print("authentication tokens and processes them correctly.")
+    print()
+    print("This will perform a full token exchange chain:")
+    print("  1. User login → User token")
+    print("  2. User token → Tax optimizer token (via agent-planner)")
+    print("  3. Tax optimizer token → Calculator token")
+    print()
+    print("Expected result: ✅ 200 OK with agent response")
+    print()
+    
+    if not get_user_input("Continue with A2A valid auth test?"):
+        print("⏭️  Skipping A2A valid auth test")
+        return True
+    
+    print("🔍 Testing A2A endpoints with valid authentication (should work)...")
     
     # First try to get a token programmatically
     test_token = await get_agent_calculator_token()
@@ -513,16 +659,43 @@ async def test_a2a_with_valid_auth():
                 }
             }
             
+            print(f"\n   📤 Request Headers:")
+            print("   " + "="*40)
+            for header, value in headers.items():
+                if header == "Authorization":
+                    # Show just the first part of the token for security
+                    token_preview = value[:50] + "..." if len(value) > 50 else value
+                    print(f"      {header}: {token_preview}")
+                else:
+                    print(f"      {header}: {value}")
+            print("   " + "="*40)
+            
+            print(f"\n   📤 Request Payload:")
+            print("   " + "="*40)
+            print(json.dumps(payload, indent=4))
+            print("   " + "="*40)
+            
             response = await client.post(f"{BASE_URL}/a2a/", json=payload, headers=headers)
-            print(f"   Status: {response.status_code}")
+            print(f"\n   📥 Response Status: {response.status_code}")
             
             if response.status_code == 200:
                 print("   ✅ Successfully authenticated and received response")
+                
+                print(f"\n   📄 Response Headers:")
+                print("   " + "="*40)
+                for header, value in response.headers.items():
+                    print(f"      {header}: {value}")
+                print("   " + "="*40)
+                
+                print(f"\n   📄 Response Body:")
+                print("   " + "="*40)
                 try:
                     result = response.json()
-                    print(f"   📄 Response: {json.dumps(result, indent=2)}")
+                    print(json.dumps(result, indent=4))
                 except:
-                    print(f"   📄 Response text: {response.text}")
+                    print(response.text)
+                print("   " + "="*40)
+                
                 return True
             elif response.status_code == 401:
                 print("   ❌ Authentication failed - token may be invalid or expired")
@@ -530,6 +703,23 @@ async def test_a2a_with_valid_auth():
                 print("      - Is valid and not expired")
                 print("      - Has 'tax:calculate' scope")
                 print("      - Is issued by the correct Keycloak realm")
+                
+                # Show response details even for 401
+                print(f"\n   📄 Response Headers:")
+                print("   " + "="*40)
+                for header, value in response.headers.items():
+                    print(f"      {header}: {value}")
+                print("   " + "="*40)
+                
+                print(f"\n   📄 Response Body:")
+                print("   " + "="*40)
+                try:
+                    error_response = response.json()
+                    print(json.dumps(error_response, indent=4))
+                except:
+                    print(response.text)
+                print("   " + "="*40)
+                
                 return False
             else:
                 print(f"   ❌ Unexpected status: {response.status_code}")
@@ -549,10 +739,21 @@ async def test_a2a_with_valid_auth():
 async def main():
     """Run all authentication tests."""
     print("🚀 Starting A2A Authentication Tests")
-    print("=" * 50)
+    print("=" * 60)
     print(f"📍 Testing against: {BASE_URL}")
     print(f"⏱️  Timeout: {TIMEOUT} seconds")
-    print("=" * 50)
+    print("=" * 60)
+    print()
+    print("This script will test the complete A2A authentication flow:")
+    print("1. Agent metadata access (public)")
+    print("2. Authentication rejection (no credentials)")
+    print("3. Authentication rejection (invalid credentials)")
+    print("4. Successful authentication (valid token exchange)")
+    print()
+    
+    if not get_user_input("Start the authentication tests?"):
+        print("👋 Demo cancelled by user")
+        return
     
     tests = [
         test_agent_card_access,
@@ -570,8 +771,9 @@ async def main():
             print(f"❌ Test failed with exception: {str(e)}")
             results.append(False)
     
-    print("\n" + "=" * 50)
+    print("\n" + "=" * 60)
     print("📊 Test Results Summary:")
+    print("=" * 60)
     
     test_names = [
         "Agent Card Access",
