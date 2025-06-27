@@ -19,7 +19,7 @@ from a2a.server.agent_execution import AgentExecutor
 from a2a.server.apps import A2AFastAPIApplication
 from a2a.server.request_handlers import DefaultRequestHandler
 from a2a.server.tasks import InMemoryTaskStore
-from a2a.types import AgentCard, Message, TextPart
+from a2a.types import AgentCard, Message, TextPart, SecurityScheme, HTTPAuthSecurityScheme
 from a2a.server.agent_execution.context import RequestContext
 from a2a.server.events.event_queue import EventQueue
 
@@ -455,14 +455,16 @@ def setup_a2a_server():
         },
         defaultInputModes=["text", "text/plain"],
         defaultOutputModes=["text", "text/plain"],
-        # Add security schemes (authentication requirements)
+        # Add security schemes following A2A SecurityScheme specification
         securitySchemes={
-            "Bearer": {
-                "type": "http",
-                "scheme": "bearer",
-                "bearerFormat": "JWT",
-                "description": "OAuth 2.0 JWT token with 'tax:calculate' scope required"
-            }
+            "Bearer": SecurityScheme(
+                root=HTTPAuthSecurityScheme(
+                    type="http",
+                    scheme="bearer",
+                    bearerFormat="JWT",
+                    description="OAuth 2.0 JWT token with 'tax:calculate' scope required"
+                )
+            )
         },
         # Specify which security schemes are required and what scopes are needed
         security=[

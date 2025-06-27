@@ -37,6 +37,26 @@ def get_user_input(prompt: str, default: str = "Y") -> bool:
         response = default
     return response in ["Y", "YES"]
 
+def decode_jwt_header(token: str) -> dict:
+    """Decode JWT header without verification for debugging."""
+    try:
+        # Split the token and get the header part
+        parts = token.split('.')
+        if len(parts) != 3:
+            return {"error": "Invalid JWT format"}
+        
+        header = parts[0]
+        # Add padding if needed
+        padding = 4 - (len(header) % 4)
+        if padding != 4:
+            header += '=' * padding
+        
+        # Decode base64
+        decoded = base64.urlsafe_b64decode(header)
+        return json.loads(decoded.decode('utf-8'))
+    except Exception as e:
+        return {"error": f"Failed to decode JWT header: {str(e)}"}
+
 def decode_jwt_payload(token: str) -> dict:
     """Decode JWT payload without verification for debugging."""
     try:
@@ -63,22 +83,64 @@ def print_token_debug(token: str, token_name: str):
     print(f"      Length: {len(token)} characters")
     print(f"      First 50 chars: {token[:50]}...")
     
-    # Decode and show payload
+    # Decode header and payload
+    header = decode_jwt_header(token)
     payload = decode_jwt_payload(token)
-    if "error" not in payload:
-        print(f"      🔐 Decoded Payload:")
+    
+    if "error" not in header and "error" not in payload:
+        print(f"      🔐 Decoded Token Payload:")
         print(f"         Issuer (iss): {payload.get('iss', 'N/A')}")
         print(f"         Subject (sub): {payload.get('sub', 'N/A')}")
         print(f"         Audience (aud): {payload.get('aud', 'N/A')}")
         print(f"         Client ID (azp): {payload.get('azp', 'N/A')}")
         print(f"         Scope: {payload.get('scope', 'N/A')}")
-        print(f"         Expires (exp): {payload.get('exp', 'N/A')}")
-        print(f"         Issued At (iat): {payload.get('iat', 'N/A')}")
+        
+        # Show expiration info with human-readable times
+        exp = payload.get('exp')
+        iat = payload.get('iat')
+        if exp:
+            from datetime import datetime
+            exp_time = datetime.fromtimestamp(exp)
+            now = datetime.now()
+            time_until_expiry = exp_time - now
+            print(f"         Expires (exp): {exp} ({exp_time.strftime('%Y-%m-%d %H:%M:%S')})")
+            print(f"         Time until expiry: {time_until_expiry}")
+        else:
+            print(f"         Expires (exp): {exp}")
+            
+        if iat:
+            from datetime import datetime
+            iat_time = datetime.fromtimestamp(iat)
+            print(f"         Issued At (iat): {iat} ({iat_time.strftime('%Y-%m-%d %H:%M:%S')})")
+        else:
+            print(f"         Issued At (iat): {iat}")
+        
+        # Show additional useful fields
+        if 'preferred_username' in payload:
+            print(f"         Username: {payload.get('preferred_username')}")
+        if 'email' in payload:
+            print(f"         Email: {payload.get('email')}")
+        if 'realm_access' in payload:
+            print(f"         Realm Access: {payload.get('realm_access')}")
+        if 'resource_access' in payload:
+            print(f"         Resource Access: {payload.get('resource_access')}")
         
         # Show all claims for debugging
-        print(f"         All claims: {json.dumps(payload, indent=8)}")
+        print(f"         📋 Complete Token Claims:")
+        print(f"         {json.dumps(payload, indent=12)}")
+        
+        # Show the complete decoded JWT structure
+        print(f"         🔓 Complete Decoded JWT:")
+        print(f"         Header:")
+        print(f"         {json.dumps(header, indent=12)}")
+        print(f"         Payload:")
+        print(f"         {json.dumps(payload, indent=12)}")
+        print(f"         Signature: [Base64 encoded signature - not decoded for security]")
     else:
-        print(f"      ❌ Failed to decode: {payload['error']}")
+        if "error" in header:
+            print(f"      ❌ Failed to decode header: {header['error']}")
+        if "error" in payload:
+            print(f"      ❌ Failed to decode payload: {payload['error']}")
 
 async def get_agent_calculator_token():
     """Programmatically get a token for the agent-calculator client using the full token exchange chain."""
